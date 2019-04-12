@@ -1,0 +1,263 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: discounts
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: discounts
+        version: v1
+    spec:
+      containers:
+        - name: discounts
+          image: lucasponce/travels:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_SERVICE
+              value: "discounts"
+            - name: CURRENT_VERSION
+              value: "v1"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: discounts
+  labels:
+    app: discounts
+spec:
+  ports:
+    - name: http
+      port: 8000
+  selector:
+    app: discounts
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: flights
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: flights
+        version: v1
+    spec:
+      containers:
+        - name: flights
+          image: lucasponce/travels:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_SERVICE
+              value: "flights"
+            - name: CURRENT_VERSION
+              value: "v1"
+            - name: DISCOUNTS_SERVICE
+              value: "http://discounts:8000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flights
+  labels:
+    app: flights
+spec:
+  ports:
+    - name: http
+      port: 8000
+  selector:
+    app: flights
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: hotels
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: hotels
+        version: v1
+    spec:
+      containers:
+        - name: hotels
+          image: lucasponce/travels:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_SERVICE
+              value: "hotels"
+            - name: CURRENT_VERSION
+              value: "v1"
+            - name: DISCOUNTS_SERVICE
+              value: "http://discounts:8000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hotels
+  labels:
+    app: hotels
+spec:
+  ports:
+    - name: http
+      port: 8000
+  selector:
+    app: hotels
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cars
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: cars
+        version: v1
+    spec:
+      containers:
+        - name: cars
+          image: lucasponce/travels:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_SERVICE
+              value: "cars"
+            - name: CURRENT_VERSION
+              value: "v1"
+            - name: DISCOUNTS_SERVICE
+              value: "http://discounts:8000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cars
+  labels:
+    app: cars
+spec:
+  ports:
+    - name: http
+      port: 8000
+  selector:
+    app: cars
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: insurances
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: insurances
+        version: v1
+    spec:
+      containers:
+        - name: insurances
+          image: lucasponce/travels:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_SERVICE
+              value: "insurances"
+            - name: CURRENT_VERSION
+              value: "v1"
+            - name: DISCOUNTS_SERVICE
+              value: "http://discounts:8000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: insurances
+  labels:
+    app: insurances
+spec:
+  ports:
+    - name: http
+      port: 8000
+  selector:
+    app: insurances
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: travels
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: travels
+        version: v1
+    spec:
+      containers:
+        - name: travels
+          image: lucasponce/travels:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: FLIGHTS_SERVICE
+              value: "http://flights:8000"
+            - name: HOTELS_SERVICE
+              value: "http://hotels:8000"
+            - name: CARS_SERVICE
+              value: "http://cars:8000"
+            - name: INSURANCES_SERVICE
+              value: "http://insurances:8000"
+            - name: CURRENT_SERVICE
+              value: "travels"
+            - name: CURRENT_VERSION
+              value: "v1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: travels
+  labels:
+    app: travels
+spec:
+  ports:
+    - name: http
+      port: 8000
+  selector:
+    app: travels
+---

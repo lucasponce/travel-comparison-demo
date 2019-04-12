@@ -3,11 +3,13 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
+	"flag"
+	"github.com/golang/glog"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -41,7 +43,7 @@ type TravelInfo struct {
 	Flights []Flight `json:"flights"`
 	Hotels []Hotel `json:"hotels"`
 	Cars []Car `json:"cars"`
-	Insurances []Insurance `json:"insurance"`
+	Insurances []Insurance `json:"insurances"`
 }
 
 type TravelQuote struct {
@@ -51,7 +53,12 @@ type TravelQuote struct {
 	Flights []Flight `json:"flights"`
 	Hotels []Hotel `json:"hotels"`
 	Cars []Car `json:"cars"`
-	Insurances []Insurance `json:"insurance"`
+	Insurances []Insurance `json:"insurances"`
+}
+
+type Discount struct {
+	User string `json:"user"`
+	Discount float32 `json:"discount"`
 }
 
 var (
@@ -194,10 +201,18 @@ var (
 	hotelsService = localService
 	carsService = localService
 	insurancesService = localService
+	discountsService = localService
+	currentService = "travels"
+	currentVersion = "no-version"
+	instance = currentService + "/" + currentVersion
+
+	chaosMonkey = false
+	chaosMonkeySleep = 500 * time.Millisecond // Milliseconds to wait if chaosMonkey is enabled
 )
 
 func main() {
 	setupServices()
+	glog.Infof("Starting %s \n", instance)
 	router := mux.NewRouter()
 	router.HandleFunc("/travels", GetCities).Methods("GET")
 	router.HandleFunc("/travels/{city}", GetTravelQuote).Methods("GET")
@@ -205,36 +220,22 @@ func main() {
 	router.HandleFunc("/hotels/{city}", GetHotels).Methods("GET")
 	router.HandleFunc("/cars/{city}", GetCars).Methods("GET")
 	router.HandleFunc("/insurances/{city}", GetInsurances).Methods("GET")
+	router.HandleFunc("/discounts/{user}", GetDiscounts).Methods("GET")
 	log.Fatal(http.ListenAndServe(":8000", router))
 }
 
-func setupServices() {
-	fs := os.Getenv("FLIGHTS_SERVICE")
-	if fs != "" {
-		flightsService = fs
-	}
-	hs := os.Getenv("HOTELS_SERVICE")
-	if hs != "" {
-		hotelsService = fs
-	}
-	cs := os.Getenv("CARS_SERVICE")
-	if cs != "" {
-		carsService = cs
-	}
-	is := os.Getenv("INSURANCE_SERVICE")
-	if is != "" {
-		insurancesService = is
-	}
-}
-
 func NotFound(w http.ResponseWriter, msg string) {
+	glog.Infof("[%s] NotFound: %s \n", instance, msg)
+
 	response, _ := json.Marshal(map[string]string{"error": msg})
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
 	w.Write(response)
 }
 
-func GetCities(w http.ResponseWriter, r *http.Request) {
+func GetCities(w http.ResponseWriter, _ *http.Request) {
+	glog.Infof("[%s] GetCities \n", instance)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cityNames)
 }
@@ -244,7 +245,7 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 	cityName := params["city"]
 	user := r.Header.Get("user")
 
-	fmt.Printf("GetTravelQuote for city %s user %s\n", cityName, user)
+	glog.Infof("[%s] GetTravelQuote for [city: %s] and [user: %s] \n", instance, cityName, user)
 
 	travelQuote := TravelQuote{
 		City: cityName,
@@ -264,9 +265,13 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		response, err := client.Do(request)
 		if err != nil {
 			errChan <- err
-		} else {
-			json.NewDecoder(response.Body).Decode(&travelQuote.Flights)
+			return
 		}
+		if response.StatusCode >= 400 {
+			errChan <- errors.New(response.Status)
+			return
+		}
+		json.NewDecoder(response.Body).Decode(&travelQuote.Flights)
 	}()
 
 	go func() {
@@ -277,9 +282,12 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		response, err := client.Do(request)
 		if err != nil {
 			errChan <- err
-		} else {
-			json.NewDecoder(response.Body).Decode(&travelQuote.Hotels)
 		}
+		if response.StatusCode >= 400 {
+			errChan <- errors.New(response.Status)
+			return
+		}
+		json.NewDecoder(response.Body).Decode(&travelQuote.Hotels)
 	}()
 
 	go func() {
@@ -290,22 +298,28 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		response, err := client.Do(request)
 		if err != nil {
 			errChan <- err
-		} else {
-			json.NewDecoder(response.Body).Decode(&travelQuote.Cars)
 		}
+		if response.StatusCode >= 400 {
+			errChan <- errors.New(response.Status)
+			return
+		}
+		json.NewDecoder(response.Body).Decode(&travelQuote.Cars)
 	}()
 
 	go func() {
 		defer wg.Done()
-		request, _ := http.NewRequest("GET", insurancesService + "/insurance/" + cityName, nil)
+		request, _ := http.NewRequest("GET", insurancesService + "/insurances/" + cityName, nil)
 		request.Header.Set("user", user)
 		client := &http.Client{}
 		response, err := client.Do(request)
 		if err != nil {
 			errChan <- err
-		} else {
-			json.NewDecoder(response.Body).Decode(&travelQuote.Insurances)
 		}
+		if response.StatusCode >= 400 {
+			errChan <- errors.New(response.Status)
+			return
+		}
+		json.NewDecoder(response.Body).Decode(&travelQuote.Insurances)
 	}()
 
 	wg.Wait()
@@ -315,6 +329,8 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	travelQuote.Status = "Valid"
+
+	releaseTheMonkey()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(travelQuote)
@@ -326,9 +342,11 @@ func GetFlights(w http.ResponseWriter, r *http.Request) {
 		NotFound(w, err.Error())
 		return
 	}
-	travelInfo = applyDiscounts(r, &travelInfo)
+	travelInfo = applyDiscounts(r, &travelInfo, "flights")
 
-	fmt.Printf("GetFlights for city %s\n", travelInfo.City)
+	glog.Infof("[%s] GetFlights for city %s \n", instance, travelInfo.City)
+
+	releaseTheMonkey()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(travelInfo.Flights)
@@ -340,9 +358,11 @@ func GetHotels(w http.ResponseWriter, r *http.Request) {
 		NotFound(w, err.Error())
 		return
 	}
-	travelInfo = applyDiscounts(r, &travelInfo)
+	travelInfo = applyDiscounts(r, &travelInfo, "hotels")
 
-	fmt.Printf("GetHotels for city %s\n", travelInfo.City)
+	glog.Infof("[%s] GetHotels for city %s \n", instance, travelInfo.City)
+
+	releaseTheMonkey()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(travelInfo.Hotels)
@@ -354,9 +374,11 @@ func GetCars(w http.ResponseWriter, r *http.Request) {
 		NotFound(w, err.Error())
 		return
 	}
-	travelInfo = applyDiscounts(r, &travelInfo)
+	travelInfo = applyDiscounts(r, &travelInfo, "cars")
 
-	fmt.Printf("GetCars for city %s\n", travelInfo.City)
+	glog.Infof("[%s] GetCars for city %s \n", instance, travelInfo.City)
+
+	releaseTheMonkey()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(travelInfo.Cars)
@@ -368,25 +390,63 @@ func GetInsurances(w http.ResponseWriter, r *http.Request) {
 		NotFound(w, err.Error())
 		return
 	}
-	travelInfo = applyDiscounts(r, &travelInfo)
+	travelInfo = applyDiscounts(r, &travelInfo, "insurances")
 
-	fmt.Printf("GetInsurances for city %s\n", travelInfo.City)
+	glog.Infof("[%s] GetInsurances for city %s \n", instance, travelInfo.City)
+
+	releaseTheMonkey()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(travelInfo.Insurances)
 }
 
-func applyDiscounts(r *http.Request, travelInfo *TravelInfo) TravelInfo {
+func GetDiscounts(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	user := params["user"]
+	discount := Discount{
+		User: user,
+		Discount: 0,
+	}
+	discountFrom := r.Header.Get("discountFrom")
+	if user != "" {
+		switch user {
+		case "first":
+			discount.Discount = 0.10
+		case "vip":
+			discount.Discount = 0.25
+		default:
+			discount.Discount = 0.05
+		}
+	}
+
+	glog.Infof("[%s] GetDiscounts for user %s from %s \n", instance, user, discountFrom)
+
+	releaseTheMonkey()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(discount)
+}
+
+func applyDiscounts(r *http.Request, travelInfo *TravelInfo, discountFrom string) TravelInfo {
 	user := r.Header.Get("user")
 	if user == "" {
 		return *travelInfo
 	}
-	discount := float32(0.90)
-	if user == "vip" {
-		discount = float32(0.75)
-	}
 
-	fmt.Printf("Applying discount %s for %s", discount, user)
+	discount := float32(1)
+	request, _ := http.NewRequest("GET", discountsService + "/discounts/" + user, nil)
+	request.Header.Set("discountFrom", discountFrom)
+	client := &http.Client{}
+	response, err := client.Do(request)
+	if err != nil {
+		glog.Errorf("No discount. Discount service is not available")
+		return *travelInfo
+	}
+	discountQuote := Discount{}
+	json.NewDecoder(response.Body).Decode(&discountQuote)
+	discount = discount - discountQuote.Discount
+
+	glog.Infof("[%s] Applying discount %f for %s \n", instance, discount, user)
 
 	for i, flight := range travelInfo.Flights {
 		travelInfo.Flights[i].Price = flight.Price * discount
@@ -411,7 +471,7 @@ func getTravelInfo(r *http.Request) (TravelInfo, error) {
 			return deepCopy(travel), nil
 		}
 	}
-	return TravelInfo{}, errors.New("City " + cityName + "not found")
+	return TravelInfo{}, errors.New("City " + cityName + " not found")
 }
 
 func deepCopy(t TravelInfo) TravelInfo {
@@ -438,4 +498,54 @@ func deepCopy(t TravelInfo) TravelInfo {
 		out.Insurances[i].Price = in.Price
 	}
 	return out
+}
+
+func releaseTheMonkey() {
+	if chaosMonkey {
+		glog.Infof("[%s] ChaosMonkey introduced %s \n", chaosMonkeySleep.String())
+		time.Sleep(chaosMonkeySleep)
+	}
+}
+
+func setupServices() {
+	flag.Set("logtostderr", "true")
+	flag.Parse()
+	ss := os.Getenv("CURRENT_SERVICE")
+	if ss != "" {
+		currentService = ss
+	}
+	sv := os.Getenv("CURRENT_VERSION")
+	if sv != "" {
+		currentVersion = sv
+	}
+
+	instance = currentService + "/" + currentVersion
+
+	fs := os.Getenv("FLIGHTS_SERVICE")
+	if fs != "" {
+		flightsService = fs
+	}
+	hs := os.Getenv("HOTELS_SERVICE")
+	if hs != "" {
+		hotelsService = hs
+	}
+	cs := os.Getenv("CARS_SERVICE")
+	if cs != "" {
+		carsService = cs
+	}
+	is := os.Getenv("INSURANCES_SERVICE")
+	if is != "" {
+		insurancesService = is
+	}
+	ds := os.Getenv("DISCOUNTS_SERVICE")
+	if ds != "" {
+		discountsService = ds
+	}
+	if os.Getenv("CHAOS_MONKEY") == "true" {
+		chaosMonkey = true
+		sleep := os.Getenv("CHAOS_MONKEY_SLEEP")
+		if value, err := strconv.Atoi(sleep); err == nil {
+			chaosMonkeySleep = time.Duration(value) * time.Millisecond
+		}
+	}
 }
