@@ -84,12 +84,43 @@ spec:
             privileged: false
           env:
             - name: CURRENT_PORTAL
-              value: "paris-web-portal"
+              value: "paris-web-portal-normal"
             - name: TRAVELS_SERVICE
               value: "http://travels.travel-agency:8000"
             - name: CITY_PORTAL
               value: "paris"
-
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: paris-web-portal-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: paris-web-portal
+        version: v2
+    spec:
+      containers:
+        - name: paris-web-portal
+          image: lucasponce/travel_portal:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_PORTAL
+              value: "paris-web-portal-vip"
+            - name: TRAVELS_SERVICE
+              value: "http://travels.travel-agency:8000"
+            - name: CITY_PORTAL
+              value: "paris"
+            - name: USER_TYPE
+              value: "vip"
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment

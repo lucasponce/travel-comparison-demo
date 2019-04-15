@@ -33,6 +33,40 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
+  name: flights-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: flights
+        version: v2
+    spec:
+      containers:
+        - name: flights
+          image: lucasponce/travel_agency:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_SERVICE
+              value: "flights"
+            - name: CURRENT_VERSION
+              value: "v2"
+            - name: DISCOUNTS_SERVICE
+              value: "http://discounts:8000"
+            - name: CHAOS_MONKEY
+              value: "true"
+            - name: CHAOS_MONKEY_SLEEP
+              value: "50"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
   name: hotels-v2
 spec:
   replicas: 1
@@ -98,3 +132,72 @@ spec:
             - name: CHAOS_MONKEY_SLEEP
               value: "50"
 ---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: insurances-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: insurances
+        version: v2
+    spec:
+      containers:
+        - name: insurances
+          image: lucasponce/travel_agency:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_SERVICE
+              value: "insurances"
+            - name: CURRENT_VERSION
+              value: "v2"
+            - name: DISCOUNTS_SERVICE
+              value: "http://discounts:8000"
+            - name: CHAOS_MONKEY
+              value: "true"
+            - name: CHAOS_MONKEY_SLEEP
+              value: "50"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: travels-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: travels
+        version: v2
+    spec:
+      containers:
+        - name: travels
+          image: lucasponce/travel_agency:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: FLIGHTS_SERVICE
+              value: "http://flights:8000"
+            - name: HOTELS_SERVICE
+              value: "http://hotels:8000"
+            - name: CARS_SERVICE
+              value: "http://cars:8000"
+            - name: INSURANCES_SERVICE
+              value: "http://insurances:8000"
+            - name: CURRENT_SERVICE
+              value: "travels"
+            - name: CURRENT_VERSION
+              value: "v2"
