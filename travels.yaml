@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: discounts
+  name: discounts-v1
 spec:
   replicas: 1
   template:
@@ -43,7 +43,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: flights
+  name: flights-v1
 spec:
   replicas: 1
   template:
@@ -86,7 +86,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: hotels
+  name: hotels-v1
 spec:
   replicas: 1
   template:
@@ -129,7 +129,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: cars
+  name: cars-v1
 spec:
   replicas: 1
   template:
@@ -172,7 +172,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: insurances
+  name: insurances-v1
 spec:
   replicas: 1
   template:
@@ -215,7 +215,7 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: travels
+  name: travels-v1
 spec:
   replicas: 1
   template:

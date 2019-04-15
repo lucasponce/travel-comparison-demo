@@ -208,6 +208,8 @@ var (
 
 	chaosMonkey = false
 	chaosMonkeySleep = 500 * time.Millisecond // Milliseconds to wait if chaosMonkey is enabled
+	chaosMonkeyCity = ""
+	chaosMonkeyUser = ""
 )
 
 func main() {
@@ -330,7 +332,7 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 
 	travelQuote.Status = "Valid"
 
-	releaseTheMonkey()
+	releaseTheMonkey(cityName, user)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(travelQuote)
@@ -346,7 +348,7 @@ func GetFlights(w http.ResponseWriter, r *http.Request) {
 
 	glog.Infof("[%s] GetFlights for city %s \n", instance, travelInfo.City)
 
-	releaseTheMonkey()
+	releaseTheMonkey(travelInfo.City, "")
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(travelInfo.Flights)
@@ -362,7 +364,7 @@ func GetHotels(w http.ResponseWriter, r *http.Request) {
 
 	glog.Infof("[%s] GetHotels for city %s \n", instance, travelInfo.City)
 
-	releaseTheMonkey()
+	releaseTheMonkey(travelInfo.City, "")
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(travelInfo.Hotels)
@@ -378,7 +380,7 @@ func GetCars(w http.ResponseWriter, r *http.Request) {
 
 	glog.Infof("[%s] GetCars for city %s \n", instance, travelInfo.City)
 
-	releaseTheMonkey()
+	releaseTheMonkey(travelInfo.City, "")
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(travelInfo.Cars)
@@ -394,7 +396,7 @@ func GetInsurances(w http.ResponseWriter, r *http.Request) {
 
 	glog.Infof("[%s] GetInsurances for city %s \n", instance, travelInfo.City)
 
-	releaseTheMonkey()
+	releaseTheMonkey(travelInfo.City, "")
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(travelInfo.Insurances)
@@ -421,7 +423,7 @@ func GetDiscounts(w http.ResponseWriter, r *http.Request) {
 
 	glog.Infof("[%s] GetDiscounts for user %s from %s \n", instance, user, discountFrom)
 
-	releaseTheMonkey()
+	releaseTheMonkey("", user)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(discount)
@@ -500,10 +502,12 @@ func deepCopy(t TravelInfo) TravelInfo {
 	return out
 }
 
-func releaseTheMonkey() {
+func releaseTheMonkey(city, user string) {
 	if chaosMonkey {
-		glog.Infof("[%s] ChaosMonkey introduced %s \n", chaosMonkeySleep.String())
-		time.Sleep(chaosMonkeySleep)
+		glog.Infof("[%s] ChaosMonkey introduced %s \n", instance, chaosMonkeySleep.String())
+		if (city != "" && city == chaosMonkeyCity) || (user != "" && user == chaosMonkeyUser) || (chaosMonkeyCity == "" && chaosMonkeyUser == "") {
+			time.Sleep(chaosMonkeySleep)
+		}
 	}
 }
 
@@ -547,5 +551,7 @@ func setupServices() {
 		if value, err := strconv.Atoi(sleep); err == nil {
 			chaosMonkeySleep = time.Duration(value) * time.Millisecond
 		}
+		chaosMonkeyCity = os.Getenv("CHAOS_MONKEY_CITY")
+		chaosMonkeyUser = os.Getenv("CHAOS_MONKEY_USER")
 	}
 }

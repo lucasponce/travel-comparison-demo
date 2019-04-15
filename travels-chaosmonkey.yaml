@@ -1,0 +1,100 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: discounts-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: discounts
+        version: v2
+    spec:
+      containers:
+        - name: discounts
+          image: lucasponce/travels:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_SERVICE
+              value: "discounts"
+            - name: CURRENT_VERSION
+              value: "v2"
+            - name: CHAOS_MONKEY
+              value: "true"
+            - name: CHAOS_MONKEY_SLEEP
+              value: "50"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: hotels-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: hotels
+        version: v2
+    spec:
+      containers:
+        - name: hotels
+          image: lucasponce/travels:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_SERVICE
+              value: "hotels"
+            - name: CURRENT_VERSION
+              value: "v2"
+            - name: DISCOUNTS_SERVICE
+              value: "http://discounts:8000"
+            - name: CHAOS_MONKEY
+              value: "true"
+            - name: CHAOS_MONKEY_SLEEP
+              value: "50"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cars-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: cars
+        version: v2
+    spec:
+      containers:
+        - name: cars
+          image: lucasponce/travels:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_SERVICE
+              value: "cars"
+            - name: CURRENT_VERSION
+              value: "v2"
+            - name: DISCOUNTS_SERVICE
+              value: "http://discounts:8000"
+            - name: CHAOS_MONKEY
+              value: "true"
+            - name: CHAOS_MONKEY_SLEEP
+              value: "50"
+---
