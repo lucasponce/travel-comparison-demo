@@ -11,4 +11,5 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-docker/travels
+docker/travel_agency/travel_agency
+docker/travel_portal/travel_portal

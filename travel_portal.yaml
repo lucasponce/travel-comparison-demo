@@ -1,0 +1,154 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: rome-web-portal-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: rome-web-portal
+        version: v1
+    spec:
+      containers:
+        - name: rome-web-portal
+          image: lucasponce/travel_portal:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_PORTAL
+              value: "rome-web-portal-normal"
+            - name: TRAVELS_SERVICE
+              value: "http://travels.travel-agency:8000"
+            - name: CITY_PORTAL
+              value: "rome"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: rome-web-portal-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: rome-web-portal
+        version: v2
+    spec:
+      containers:
+        - name: rome-web-portal
+          image: lucasponce/travel_portal:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_PORTAL
+              value: "rome-web-portal-vip"
+            - name: TRAVELS_SERVICE
+              value: "http://travels.travel-agency:8000"
+            - name: CITY_PORTAL
+              value: "rome"
+            - name: USER_TYPE
+              value: "vip"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: paris-web-portal-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: paris-web-portal
+        version: v1
+    spec:
+      containers:
+        - name: paris-web-portal
+          image: lucasponce/travel_portal:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_PORTAL
+              value: "paris-web-portal"
+            - name: TRAVELS_SERVICE
+              value: "http://travels.travel-agency:8000"
+            - name: CITY_PORTAL
+              value: "paris"
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: london-web-portal-v1
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: london-web-portal
+        version: v1
+    spec:
+      containers:
+        - name: london-web-portal
+          image: lucasponce/travel_portal:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_PORTAL
+              value: "london-web-portal-normal"
+            - name: TRAVELS_SERVICE
+              value: "http://travels.travel-agency:8000"
+            - name: CITY_PORTAL
+              value: "london"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: london-web-portal-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        readiness.status.sidecar.istio.io/applicationPorts: ""
+      labels:
+        app: london-web-portal
+        version: v2
+    spec:
+      containers:
+        - name: london-web-portal
+          image: lucasponce/travel_portal:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          securityContext:
+            privileged: false
+          env:
+            - name: CURRENT_PORTAL
+              value: "london-web-portal-vip"
+            - name: TRAVELS_SERVICE
+              value: "http://travels.travel-agency:8000"
+            - name: CITY_PORTAL
+              value: "london"
+            - name: USER_TYPE
+              value: "vip"

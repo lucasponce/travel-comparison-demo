@@ -1,9 +1,17 @@
 #!/bin/bash
 
-DOCKER_NAME=lucasponce/travels
 DOCKER_VERSION=dev
-DOCKER_TAG=${DOCKER_NAME}:${DOCKER_VERSION}
+DOCKER_TRAVEL_AGENCY=lucasponce/travel_agency
+DOCKER_TRAVEL_AGENCY_TAG=${DOCKER_TRAVEL_AGENCY}:${DOCKER_VERSION}
 
-go build -o docker/travels travels.go
+go build -o docker/travel_agency/travel_agency travel_agency/travel_agency.go
 
-docker build -t ${DOCKER_TAG} docker
+docker build -t ${DOCKER_TRAVEL_AGENCY_TAG} docker/travel_agency
+
+DOCKER_TRAVEL_PORTAL=lucasponce/travel_portal
+DOCKER_TRAVEL_PORTAL_TAG=${DOCKER_TRAVEL_PORTAL}:${DOCKER_VERSION}
+
+go build -o docker/travel_portal/travel_portal travel_portal/travel_portal.go
+
+docker build -t ${DOCKER_TRAVEL_PORTAL_TAG} docker/travel_portal
+

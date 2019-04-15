@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: discounts
-          image: lucasponce/travels:dev
+          image: lucasponce/travel_agency:dev
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -56,7 +56,7 @@ spec:
     spec:
       containers:
         - name: flights
-          image: lucasponce/travels:dev
+          image: lucasponce/travel_agency:dev
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -99,7 +99,7 @@ spec:
     spec:
       containers:
         - name: hotels
-          image: lucasponce/travels:dev
+          image: lucasponce/travel_agency:dev
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -142,7 +142,7 @@ spec:
     spec:
       containers:
         - name: cars
-          image: lucasponce/travels:dev
+          image: lucasponce/travel_agency:dev
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -185,7 +185,7 @@ spec:
     spec:
       containers:
         - name: insurances
-          image: lucasponce/travels:dev
+          image: lucasponce/travel_agency:dev
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -228,7 +228,7 @@ spec:
     spec:
       containers:
         - name: travels
-          image: lucasponce/travels:dev
+          image: lucasponce/travel_agency:dev
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
