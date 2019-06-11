@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 DOCKER_VERSION=dev
 DOCKER_TRAVEL_AGENCY=lucasponce/travel_agency
