@@ -246,6 +246,16 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	cityName := params["city"]
 	user := r.Header.Get("user")
+	xRequestId := r.Header.Get("x-request-id")
+	xB3TraceId := r.Header.Get("x-b3-traceid")
+	xB3SpanId := r.Header.Get("x-b3-spanid")
+	xB3ParentSpanId := r.Header.Get("x-b3-parentspanid")
+	xB3Sampled := r.Header.Get("x-b3-sampled")
+	xB3Flags := r.Header.Get("x-b3-flags")
+	b3 := r.Header.Get("b3")
+	xOtSpanContext := r.Header.Get("x-ot-span-context")
+
+	glog.Infof("[%s] GetTravelQuote Tracing Headers [x-request-id: %s] [x-b3-traceid: %s] [x-b3-spanid: %s] [x-b3-parentspanid: %s] [x-b3-sampled: %s] [x-b3-flags: %s] [b3: %s] [x-ot-span-context: %s]", instance, xRequestId, xB3TraceId, xB3SpanId, xB3ParentSpanId, xB3Sampled, xB3Flags, b3, xOtSpanContext)
 
 	glog.Infof("[%s] GetTravelQuote for [city: %s] and [user: %s] \n", instance, cityName, user)
 
@@ -263,6 +273,15 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		defer wg.Done()
 		request, _ := http.NewRequest("GET", flightsService + "/flights/" + cityName, nil)
 		request.Header.Set("user", user)
+		request.Header.Set("x-request-id", xRequestId)
+		request.Header.Set("x-b3-traceid", xB3TraceId)
+		request.Header.Set("x-b3-spanid", xB3SpanId)
+		request.Header.Set("x-b3-parentspanid", xB3ParentSpanId)
+		request.Header.Set("x-b3-sampled", xB3Sampled)
+		request.Header.Set("x-b3-flags", xB3Flags)
+		request.Header.Set("b3", b3)
+		request.Header.Set("x-ot-span-context", xOtSpanContext)
+
 		client := &http.Client{}
 		response, err := client.Do(request)
 		if err != nil {
@@ -280,6 +299,15 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		defer wg.Done()
 		request, _ := http.NewRequest("GET", hotelsService + "/hotels/" + cityName, nil)
 		request.Header.Set("user", user)
+		request.Header.Set("x-request-id", xRequestId)
+		request.Header.Set("x-b3-traceid", xB3TraceId)
+		request.Header.Set("x-b3-spanid", xB3SpanId)
+		request.Header.Set("x-b3-parentspanid", xB3ParentSpanId)
+		request.Header.Set("x-b3-sampled", xB3Sampled)
+		request.Header.Set("x-b3-flags", xB3Flags)
+		request.Header.Set("b3", b3)
+		request.Header.Set("x-ot-span-context", xOtSpanContext)
+
 		client := &http.Client{}
 		response, err := client.Do(request)
 		if err != nil {
@@ -296,6 +324,15 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		defer wg.Done()
 		request, _ := http.NewRequest("GET", carsService + "/cars/" + cityName, nil)
 		request.Header.Set("user", user)
+		request.Header.Set("x-request-id", xRequestId)
+		request.Header.Set("x-b3-traceid", xB3TraceId)
+		request.Header.Set("x-b3-spanid", xB3SpanId)
+		request.Header.Set("x-b3-parentspanid", xB3ParentSpanId)
+		request.Header.Set("x-b3-sampled", xB3Sampled)
+		request.Header.Set("x-b3-flags", xB3Flags)
+		request.Header.Set("b3", b3)
+		request.Header.Set("x-ot-span-context", xOtSpanContext)
+
 		client := &http.Client{}
 		response, err := client.Do(request)
 		if err != nil {
@@ -312,6 +349,15 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		defer wg.Done()
 		request, _ := http.NewRequest("GET", insurancesService + "/insurances/" + cityName, nil)
 		request.Header.Set("user", user)
+		request.Header.Set("x-request-id", xRequestId)
+		request.Header.Set("x-b3-traceid", xB3TraceId)
+		request.Header.Set("x-b3-spanid", xB3SpanId)
+		request.Header.Set("x-b3-parentspanid", xB3ParentSpanId)
+		request.Header.Set("x-b3-sampled", xB3Sampled)
+		request.Header.Set("x-b3-flags", xB3Flags)
+		request.Header.Set("b3", b3)
+		request.Header.Set("x-ot-span-context", xOtSpanContext)
+
 		client := &http.Client{}
 		response, err := client.Do(request)
 		if err != nil {
@@ -339,6 +385,7 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetFlights(w http.ResponseWriter, r *http.Request) {
+	logJaegerHeaders("GetFlights", r)
 	travelInfo, err := getTravelInfo(r)
 	if err != nil {
 		NotFound(w, err.Error())
@@ -355,6 +402,7 @@ func GetFlights(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetHotels(w http.ResponseWriter, r *http.Request) {
+	logJaegerHeaders("GetHotels", r)
 	travelInfo, err := getTravelInfo(r)
 	if err != nil {
 		NotFound(w, err.Error())
@@ -371,6 +419,7 @@ func GetHotels(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetCars(w http.ResponseWriter, r *http.Request) {
+	logJaegerHeaders("GetCars", r)
 	travelInfo, err := getTravelInfo(r)
 	if err != nil {
 		NotFound(w, err.Error())
@@ -387,6 +436,7 @@ func GetCars(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetInsurances(w http.ResponseWriter, r *http.Request) {
+	logJaegerHeaders("GetDiscounts", r)
 	travelInfo, err := getTravelInfo(r)
 	if err != nil {
 		NotFound(w, err.Error())
@@ -403,6 +453,7 @@ func GetInsurances(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetDiscounts(w http.ResponseWriter, r *http.Request) {
+	logJaegerHeaders("GetDiscounts", r)
 	params := mux.Vars(r)
 	user := params["user"]
 	discount := Discount{
@@ -431,6 +482,15 @@ func GetDiscounts(w http.ResponseWriter, r *http.Request) {
 
 func applyDiscounts(r *http.Request, travelInfo *TravelInfo, discountFrom string) TravelInfo {
 	user := r.Header.Get("user")
+	xRequestId := r.Header.Get("x-request-id")
+	xB3TraceId := r.Header.Get("x-b3-traceid")
+	xB3SpanId := r.Header.Get("x-b3-spanid")
+	xB3ParentSpanId := r.Header.Get("x-b3-parentspanid")
+	xB3Sampled := r.Header.Get("x-b3-sampled")
+	xB3Flags := r.Header.Get("x-b3-flags")
+	b3 := r.Header.Get("b3")
+	xOtSpanContext := r.Header.Get("x-ot-span-context")
+
 	if user == "" {
 		return *travelInfo
 	}
@@ -438,6 +498,15 @@ func applyDiscounts(r *http.Request, travelInfo *TravelInfo, discountFrom string
 	discount := float32(1)
 	request, _ := http.NewRequest("GET", discountsService + "/discounts/" + user, nil)
 	request.Header.Set("discountFrom", discountFrom)
+	request.Header.Set("x-request-id", xRequestId)
+	request.Header.Set("x-b3-traceid", xB3TraceId)
+	request.Header.Set("x-b3-spanid", xB3SpanId)
+	request.Header.Set("x-b3-parentspanid", xB3ParentSpanId)
+	request.Header.Set("x-b3-sampled", xB3Sampled)
+	request.Header.Set("x-b3-flags", xB3Flags)
+	request.Header.Set("b3", b3)
+	request.Header.Set("x-ot-span-context", xOtSpanContext)
+
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
@@ -474,6 +543,19 @@ func getTravelInfo(r *http.Request) (TravelInfo, error) {
 		}
 	}
 	return TravelInfo{}, errors.New("City " + cityName + " not found")
+}
+
+func logJaegerHeaders(method string, r *http.Request) {
+	xRequestId := r.Header.Get("x-request-id")
+	xB3TraceId := r.Header.Get("x-b3-traceid")
+	xB3SpanId := r.Header.Get("x-b3-spanid")
+	xB3ParentSpanId := r.Header.Get("x-b3-parentspanid")
+	xB3Sampled := r.Header.Get("x-b3-sampled")
+	xB3Flags := r.Header.Get("x-b3-flags")
+	b3 := r.Header.Get("b3")
+	xOtSpanContext := r.Header.Get("x-ot-span-context")
+
+	glog.Infof("[%s] %s Tracing Headers [x-request-id: %s] [x-b3-traceid: %s] [x-b3-spanid: %s] [x-b3-parentspanid: %s] [x-b3-sampled: %s] [x-b3-flags: %s] [b3: %s] [x-ot-span-context: %s]", instance, method, xRequestId, xB3TraceId, xB3SpanId, xB3ParentSpanId, xB3Sampled, xB3Flags, b3, xOtSpanContext)
 }
 
 func deepCopy(t TravelInfo) TravelInfo {
