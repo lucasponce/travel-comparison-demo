@@ -1,8 +1,12 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: discounts-v1
 spec:
+  selector:
+    matchLabels:
+      app: discounts
+      version: v1
   replicas: 1
   template:
     metadata:
@@ -40,11 +44,15 @@ spec:
   selector:
     app: discounts
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: flights-v1
 spec:
+  selector:
+    matchLabels:
+      app: flights
+      version: v1
   replicas: 1
   template:
     metadata:
@@ -83,11 +91,15 @@ spec:
   selector:
     app: flights
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hotels-v1
 spec:
+  selector:
+    matchLabels:
+      app: hotels
+      version: v1
   replicas: 1
   template:
     metadata:
@@ -126,11 +138,15 @@ spec:
   selector:
     app: hotels
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cars-v1
 spec:
+  selector:
+    matchLabels:
+      app: cars
+      version: v1
   replicas: 1
   template:
     metadata:
@@ -169,11 +185,15 @@ spec:
   selector:
     app: cars
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: insurances-v1
 spec:
+  selector:
+    matchLabels:
+      app: insurances
+      version: v1
   replicas: 1
   template:
     metadata:
@@ -212,12 +232,16 @@ spec:
   selector:
     app: insurances
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: travels-v1
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: travels
+      version: v1
   template:
     metadata:
       annotations:

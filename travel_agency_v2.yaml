@@ -1,8 +1,12 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: discounts-v2
 spec:
+  selector:
+    matchLabels:
+      app: discounts
+      version: v2
   replicas: 1
   template:
     metadata:
@@ -30,11 +34,15 @@ spec:
             - name: CHAOS_MONKEY_SLEEP
               value: "50"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: flights-v2
 spec:
+  selector:
+    matchLabels:
+      app: flights
+      version: v2
   replicas: 1
   template:
     metadata:
@@ -64,11 +72,15 @@ spec:
             - name: CHAOS_MONKEY_SLEEP
               value: "50"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hotels-v2
 spec:
+  selector:
+    matchLabels:
+      app: hotels
+      version: v2
   replicas: 1
   template:
     metadata:
@@ -98,11 +110,15 @@ spec:
             - name: CHAOS_MONKEY_SLEEP
               value: "50"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cars-v2
 spec:
+  selector:
+    matchLabels:
+      app: cars
+      version: v2
   replicas: 1
   template:
     metadata:
@@ -132,11 +148,15 @@ spec:
             - name: CHAOS_MONKEY_SLEEP
               value: "50"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: insurances-v2
 spec:
+  selector:
+    matchLabels:
+      app: insurances
+      version: v2
   replicas: 1
   template:
     metadata:
@@ -166,11 +186,15 @@ spec:
             - name: CHAOS_MONKEY_SLEEP
               value: "50"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: travels-v2
 spec:
+  selector:
+    matchLabels:
+      app: travels
+      version: v2
   replicas: 1
   template:
     metadata:

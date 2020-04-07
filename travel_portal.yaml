@@ -1,8 +1,12 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rome-portal-web
 spec:
+  selector:
+    matchLabels:
+      app: rome-portal
+      version: web
   replicas: 1
   template:
     metadata:
@@ -28,11 +32,15 @@ spec:
             - name: CITY_PORTAL
               value: "rome"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: rome-portal-vip
 spec:
+  selector:
+    matchLabels:
+      app: rome-portal
+      version: vip
   replicas: 1
   template:
     metadata:
@@ -60,11 +68,15 @@ spec:
             - name: USER_TYPE
               value: "vip"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: paris-portal-web
 spec:
+  selector:
+    matchLabels:
+      app: paris-portal
+      version: web
   replicas: 1
   template:
     metadata:
@@ -90,11 +102,15 @@ spec:
             - name: CITY_PORTAL
               value: "paris"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: paris-portal-vip
 spec:
+  selector:
+    matchLabels:
+      app: paris-portal
+      version: vip
   replicas: 1
   template:
     metadata:
@@ -122,11 +138,15 @@ spec:
             - name: USER_TYPE
               value: "vip"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: london-portal-web
 spec:
+  selector:
+    matchLabels:
+      app: london-portal
+      version: web
   replicas: 1
   template:
     metadata:
@@ -152,11 +172,15 @@ spec:
             - name: CITY_PORTAL
               value: "london"
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: london-portal-vip
 spec:
+  selector:
+    matchLabels:
+      app: london-portal
+      version: vip
   replicas: 1
   template:
     metadata:
