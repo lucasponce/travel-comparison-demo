@@ -7,49 +7,8 @@ import (
 	"os"
 	"github.com/gorilla/mux"
 	"encoding/json"
+	"io/ioutil"
 )
-
-type Settings struct {
-	RequestRatio 	int `json:"request_ratio"`
-	Devices 		Devices `json:"devices"`
-	Users 			Users `json:"users"`
-	TravelType 		TravelType `json:"travel_type"`
-}
-
-type Status struct {
-	Requests Requests `json:"requests"`
-}
-
-type Requests struct {
-	Total      int `json:"total"`
-	Devices    Devices `json:"devices"`
-	Users      Users `json:"users"`
-	TravelType TravelType `json:"travel_type"`
-}
-
-type Devices struct {
-	Web    int `json:"web"`
-	Mobile int `json:"mobile"`
-}
-
-type Users struct {
-	Registered int `json:"registered"`
-	New        int `json:"new"`
-}
-
-type TravelType struct {
-	T1 int `json:"t1"`
-	T2 int `json:"t2"`
-	T3 int `json:"t3"`
-}
-
-type CityStatus struct {
-	City    	string `json:"city"`
-	Coordinates []float64 `json:"coordinates"`
-	Country 	string `json:"country"`
-	Settings 	Settings `json:"settings"`
-	Status  	Status `json:"status"`
-}
 
 var (
 	// By default travel_control binary expects a /html folder in its directory
@@ -67,11 +26,43 @@ func setup() {
 	}
 }
 
-func GetStatus(w http.ResponseWriter, _ *http.Request) {
-	glog.Info("GetStatus \n")
+func response(w http.ResponseWriter, code int, payload interface{}) {
+	response, err := json.Marshal(payload)
+	if err != nil {
+		response, _ = json.Marshal(ResponseError{Error: err.Error()})
+		code = http.StatusInternalServerError
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(demoData())
+	w.WriteHeader(code)
+	_, _ = w.Write(response)
+}
+
+func GetStatus(w http.ResponseWriter, _ *http.Request) {
+	glog.Info("GetStatus \n")
+	response(w, http.StatusOK, demoData())
+}
+
+func PutSettings(w http.ResponseWriter, r *http.Request) {
+	glog.Info("PutSettings \n")
+
+	params := mux.Vars(r)
+	city := params["city"]
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		response(w, http.StatusBadRequest, ResponseError{Error: "Error reading body", Detail: err.Error()})
+		return
+	}
+
+	var settings Settings
+	if err := json.Unmarshal(body, &settings); err != nil {
+		response(w, http.StatusBadRequest, ResponseError{Error: "Error unmarshall settings", Detail: err.Error()})
+		return
+	}
+
+	glog.Infof("Received PutSettings for [%s] [%v]", city, settings)
+	response(w, http.StatusOK, settings)
 }
 
 func main() {
@@ -83,6 +74,7 @@ func main() {
 	// Dynamic routes
 
 	router.HandleFunc("/status", GetStatus).Methods("GET")
+	router.HandleFunc("/settings/{city}", PutSettings).Methods("PUT")
 
 	// Static routes
 
