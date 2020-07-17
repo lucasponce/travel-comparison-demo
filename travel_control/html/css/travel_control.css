@@ -2,7 +2,7 @@
 
 :root {
     --map-stroke-color:         rgba(8, 81, 156, 0.2);
-    --map-fill-selected-color:  rgba(8, 81, 156, 0.9);
+    --map-fill-selected-color:  rgba(8, 81, 156, 0.3);
     --map-fill-color:           rgba(8, 81, 156, 0.2);
     --total-color:              steelblue;
     --device-web-color:         rgb(255, 153, 51);
@@ -12,8 +12,7 @@
     --travel-t1-color:          rgb(51, 153, 255);
     --travel-t2-color:          rgb(204, 51, 255);
     --travel-t3-color:          rgb(255, 51, 153);
-    --success-color:            #2ecc71;
-    --error-color:              #e74c3c;
+    --refresh-color:            #2ecc71;
 }
 
 * {
@@ -169,9 +168,22 @@ html, body {
     background: var(--travel-t3-color);
 }
 
-.form-control {
+.left-form-group {
     float: left;
-    position: relative;
     width: 25%;
 }
+
+.left-form input.refresh-control {
+    width: 100%;
+}
+
+.left-form input.refresh-control::-moz-range-thumb {
+    background: var(--refresh-color);
+}
+
+.left-form input.refresh-control::-webkit-slider-thumb {
+    background: var(--refresh-color);
+}
+
+
 

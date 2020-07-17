@@ -1,6 +1,11 @@
 // Keep a global variable of world and cities data, to not repeat parsing
 let oldWorld = undefined;
 let oldCities = undefined;
+let refreshHandler = undefined;
+let refreshTimeout = 5000;
+
+// Global callbacks for updating map and charts
+let updateMap = undefined;
 
 const buildCitiesForm = (cities) => {
     const div = document.getElementById("tc_left");
@@ -10,32 +15,45 @@ const buildCitiesForm = (cities) => {
         form.id = city.city;
         form.className = 'left-form';
         form.innerHTML = `
-            <h2>${city.city}</h2>
-            <div class="form-control">
+            <h2>${city.city} Settings</h2>
+            <div class="left-form-group">
                 <label for="${city.city}_ratio">Requests Ratio</label>
-                <input class="requests-total" type="range" min="0" max="100" id="${city.city}_ratio" />
+                <input class="requests-total" type="range" min="0" max="100" step="1" value="${city.settings.request_ratio}" id="${city.city}_ratio" />
             </div>
-            <div class="form-control">
+            <div class="left-form-group">
                 <label for="${city.city}_device">Device (%)</label>
-                <input class="device-mobile" type="range" min="0" max="100" id="${city.city}_device_mobile" />
-                <input class="device-web" type="range" min="0" max="100" id="${city.city}_device_web" />                
+                <input class="device-mobile" type="range" min="0" max="100" step="1" value="${city.settings.devices.mobile}" id="${city.city}_device_mobile" />
+                <input class="device-web" type="range" min="0" max="100" step="1" value="${city.settings.devices.web}" id="${city.city}_device_web" />                
             </div>
-            <div class="form-control">
+            <div class="left-form-group">
                 <label for="${city.city}_user">User (%)</label>
-                <input class="user-new" type="range" min="0" max="100" id="${city.city}_user_new" />
-                <input class="user-registered" type="range" min="0" max="100" id="${city.city}_user_registered" />                
+                <input class="user-new" type="range" min="0" max="100" step="1" value="${city.settings.users.new}" id="${city.city}_user_new" />
+                <input class="user-registered" type="range" min="0" max="100" step="1" value="${city.settings.users.registered}" id="${city.city}_user_registered" />                
             </div>
-            <div class="form-control">
+            <div class="left-form-group">
                 <label for="${city.city}_user">Travel Type (%)</label>
-                <input class="travel-t1" type="range" min="0" max="100" id="${city.city}_travel_t1" />
-                <input class="travel-t2" type="range" min="0" max="100" id="${city.city}_travel_t2" />
-                <input class="travel-t3" type="range" min="0" max="100" id="${city.city}_travel_t3" />                            
+                <input class="travel-t1" type="range" min="0" max="100" step="1" value="${city.settings.travel_type.t1}" id="${city.city}_travel_t1" />
+                <input class="travel-t2" type="range" min="0" max="100" step="1" value="${city.settings.travel_type.t2}" id="${city.city}_travel_t2" />
+                <input class="travel-t3" type="range" min="0" max="100" step="1" value="${city.settings.travel_type.t3}" id="${city.city}_travel_t3" />                            
             </div>
         `;
         div.append(form);
     });
 
 };
+
+const buildRefreshForm = () => {
+    const div = document.getElementById("tc_left");
+    const form = document.createElement("form");
+    form.id = "refresh-control";
+    form.className = 'left-form';
+    form.innerHTML = `
+        <h2>Global Settings</h2>
+        <label for="refresh_control">Refresh Control</label>
+        <input class="refresh-control" type="range" min="0" max="10000" step="100" value="${refreshTimeout}" oninput="updateRefresh(this.value)" onchange="updateRefresh(this.value)" id="refresh_control" />        
+    `;
+    div.append(form);
+}
 
 const drawMap = (world, cities) => {
     const div = document.getElementById("tc_map");
@@ -72,6 +90,139 @@ const drawMap = (world, cities) => {
             }
             return "var(--map-fill-color)";
         });
+
+    svg.append("g")
+        .attr("id", "g_status_info");
+
+    updateMap = (newCities) => {
+        const radius = d3.scaleLinear()
+            .domain([0, d3.max(newCities.map(c => c.status.requests.total))])
+            .range([0, 50]);
+
+        svg.select("#g_status_info").remove();
+        svg.append("g")
+            .attr("id", "g_status_info");
+
+        const g = svg.select("#g_status_info")
+            .selectAll("circle")
+            .data(newCities)
+            .enter();
+
+        const newX = (radial, radius, oldX) => oldX + Math.sin(radial)*radius;
+        const newY = (radial, radius, oldY) => oldY + Math.cos(radial)*radius;
+
+        // Devices circles
+        g.append("circle")
+            .attr("cx", p => newX(Math.PI*2/3 * 0, radius(p.status.requests.total), projection(p.coordinates)[0]))
+            .attr("cy", p => newY(Math.PI*2/3 * 0, radius(p.status.requests.total), projection(p.coordinates)[1]))
+            .attr("r", p => radius(p.status.requests.devices.web > p.status.requests.devices.mobile ? p.status.requests.devices.web : p.status.requests.devices.mobile))
+            .attr("fill", p => p.status.requests.devices.web > p.status.requests.devices.mobile ? "var(--device-web-color)" : "var(--device-mobile-color)");
+
+        g.append("circle")
+            .attr("cx", p => newX(Math.PI*2/3 * 0, radius(p.status.requests.total), projection(p.coordinates)[0]))
+            .attr("cy", p => newY(Math.PI*2/3 * 0, radius(p.status.requests.total), projection(p.coordinates)[1]))
+            .attr("r", p => radius(p.status.requests.devices.web < p.status.requests.devices.mobile ? p.status.requests.devices.web : p.status.requests.devices.mobile))
+            .attr("fill", p => p.status.requests.devices.web < p.status.requests.devices.mobile ? "var(--device-web-color)" : "var(--device-mobile-color)");
+
+        // User circles
+        g.append("circle")
+            .attr("cx", p => newX(Math.PI*2/3 * 1, radius(p.status.requests.total), projection(p.coordinates)[0]))
+            .attr("cy", p => newY(Math.PI*2/3 * 1, radius(p.status.requests.total), projection(p.coordinates)[1]))
+            .attr("r", p => radius(p.status.requests.users.new > p.status.requests.users.registered ? p.status.requests.users.new : p.status.requests.users.registered))
+            .attr("fill", p => p.status.requests.users.new > p.status.requests.users.registered ? "var(--user-new-color)" : "var(--user-registered-color)");
+
+        g.append("circle")
+            .attr("cx", p => newX(Math.PI*2/3 * 1, radius(p.status.requests.total), projection(p.coordinates)[0]))
+            .attr("cy", p => newY(Math.PI*2/3 * 1, radius(p.status.requests.total), projection(p.coordinates)[1]))
+            .attr("r", p => radius(p.status.requests.users.new < p.status.requests.users.registered ? p.status.requests.users.new : p.status.requests.users.registered))
+            .attr("fill", p => p.status.requests.users.new < p.status.requests.users.registered ? "var(--user-new-color)" : "var(--user-registered-color)");
+
+        // Travel types
+
+        const maxTravel = (t) => {
+            if (t.t1 > t.t2) {
+                if (t.t1 > t.t3) {
+                    return {
+                        max: t.t1,
+                        color: "var(--travel-t1-color)"
+                    };
+                }
+            } else {
+                if (t.t2 > t.t3) {
+                    return {
+                        max: t.t2,
+                        color: "var(--travel-t2-color)"
+                    };
+                }
+            }
+            return {
+                max: t.t3,
+                color: "var(--travel-t3-color)"
+            };
+        };
+
+        const minTravel = (t) => {
+            if (t.t1 < t.t2) {
+                if (t.t1 < t.t3) {
+                    return {
+                        min: t.t1,
+                        color: "var(--travel-t1-color)"
+                    };
+                }
+            } else {
+                if (t.t2 < t.t3) {
+                    return {
+                        min: t.t2,
+                        color: "var(--travel-t2-color)"
+                    };
+                }
+            }
+            return {
+                min: t.t3,
+                color: "var(--travel-t3-color)"
+            };
+        };
+
+        const midTravel = (t) => {
+            if (t.t1 < t.t2) {
+                if (t.t1 > t.t3) {
+                    return {
+                        mid: t.t1,
+                        color: "var(--travel-t1-color)"
+                    };
+                }
+            } else {
+                if (t.t2 > t.t3) {
+                    return {
+                        mid: t.t2,
+                        color: "var(--travel-t2-color)"
+                    };
+                }
+            }
+            return {
+                mid: t.t3,
+                color: "var(--travel-t3-color)"
+            };
+        };
+
+        g.append("circle")
+            .attr("cx", p => newX(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[0]))
+            .attr("cy", p => newY(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[1]))
+            .attr("r", p => radius(maxTravel(p.status.requests.travel_type).max))
+            .attr("fill", p => maxTravel(p.status.requests.travel_type).color);
+
+        g.append("circle")
+            .attr("cx", p => newX(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[0]))
+            .attr("cy", p => newY(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[1]))
+            .attr("r", p => radius(midTravel(p.status.requests.travel_type).mid))
+            .attr("fill", p => midTravel(p.status.requests.travel_type).color);
+
+        g.append("circle")
+            .attr("cx", p => newX(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[0]))
+            .attr("cy", p => newY(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[1]))
+            .attr("r", p => radius(minTravel(p.status.requests.travel_type).min))
+            .attr("fill", p => minTravel(p.status.requests.travel_type).color);
+    }
 };
 
 const drawChartsTotal = (cities) => {
@@ -145,7 +296,6 @@ const drawChartsTotal = (cities) => {
 
     svg.append("g")
         .call(yAxis);
-
 };
 
 const drawChartsDetails = (cities, divId, svgId, keys, colors, dataMap, title) => {
@@ -240,7 +390,6 @@ const drawChartsDetails = (cities, divId, svgId, keys, colors, dataMap, title) =
 
     svg.append("g")
         .call(legend);
-
 };
 
 const drawChartsDevices = (cities) => {
@@ -339,39 +488,71 @@ const drawChartsTypes = (cities) => {
     );
 }
 
+const drawCharts = (cities) => {
+    d3.select("#svg_charts_total").remove();
+    d3.select("#svg_charts_devices").remove();
+    d3.select("#svg_charts_users").remove();
+    d3.select("#svg_charts_travel_types").remove();
+
+    drawChartsTotal(cities);
+    drawChartsDevices(cities);
+    drawChartsUsers(cities);
+    drawChartsTypes(cities);
+}
+
+const getCities = () => fetch('status')
+    .then(resp => {
+        return resp.json();
+    });
+
+const updateCities = () => {
+    getCities()
+        .then(newCities => {
+            oldCities = newCities;
+            updateMap(oldCities);
+            drawCharts(oldCities);
+        });
+}
+
+const updateRefresh = (value) => {
+    refreshTimeout = value
+    clearInterval(refreshHandler);
+    refreshHandler = window.setInterval(updateCities, refreshTimeout);
+};
+
+// Main entry points
+
 // From https://github.com/topojson/world-atlas
 // Load json data, note that d3 v5 uses promises, so function callbaks are not supported
 Promise.all([
     d3.json("data/countries-110m.json"),
-    d3.json("data/example_status.json")
+    getCities(),
 ])
-    .then(([world, cities]) => {
-        oldWorld = world;
-        oldCities = cities;
+    .then(([newWorld, newCities]) => {
+        oldCities = newCities;
+        oldWorld = newWorld;
 
-        buildCitiesForm(cities);
+        buildCitiesForm(oldCities);
+        buildRefreshForm();
+
+        drawCharts(oldCities);
 
         drawMap(oldWorld, oldCities);
-        drawChartsTotal(oldCities);
-        drawChartsDevices(oldCities);
-        drawChartsUsers(oldCities);
-        drawChartsTypes(oldCities);
+        updateMap(oldCities);
     });
 
 window.onresize = () => {
     if (oldWorld !== undefined && oldCities !== undefined) {
 
         d3.select("#svg_map").remove();
-        d3.select("#svg_charts_total").remove();
-        d3.select("#svg_charts_devices").remove();
-        d3.select("#svg_charts_users").remove();
-        d3.select("#svg_charts_travel_types").remove();
-
         drawMap(oldWorld, oldCities);
-        drawChartsTotal(oldCities);
-        drawChartsDevices(oldCities);
-        drawChartsUsers(oldCities);
-        drawChartsTypes(oldCities);
+        updateMap(oldCities);
+
+        drawCharts(oldCities);
     }
 };
+
+refreshHandler = window.setInterval(updateCities, refreshTimeout);
+
+
 
