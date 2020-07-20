@@ -1,38 +1,39 @@
 let updateMap = undefined;          // Global callbacks for updating map and charts
-let oldWorld = undefined;           // Keep a global variable of world and cities data, to not repeat parsing
-let oldCities = undefined;
+let oldWorld = undefined;           // Keep a global variable of world topology to not repeat drawing
+let oldPortals = undefined;
 let refreshHandler = undefined;
 let refreshTimeout = 5000;
 let refreshLast = new Date();
 
-const buildCitiesForm = (cities) => {
+const buildPortalsForm = (portals) => {
     const div = document.getElementById("tc_left");
 
-    cities.forEach(city => {
+    portals.forEach(portal => {
         const form = document.createElement("form");
-        form.id = city.city;
+        form.id = portal.name;
         form.className = 'left-form';
+        errorContent = portal.status.error ? ' - Failed to connect' : '';
         form.innerHTML = `
-            <h2>${city.city} Settings</h2>
+            <h2>${portal.name} Settings <span id="${portal.name}_error" class="error">${errorContent}</span></h2>
             <div class="left-form-group">
-                <label for="${city.city}_ratio">Requests Ratio</label>
-                <input class="requests-total" type="range" min="0" max="100" step="1" value="${city.settings.request_ratio}" onchange="updateCityForm(this.id, this.value)" id="${city.city}_ratio" />
+                <label for="${portal.name}_ratio">Requests Ratio</label>
+                <input class="requests-total" type="range" min="0" max="100" step="1" value="${portal.settings.request_ratio}" onchange="updatePortalForm(this.id, this.value)" id="${portal.name}_ratio" />
             </div>
             <div class="left-form-group">
-                <label for="${city.city}_device">Device (%)</label>
-                <input class="device-mobile" type="range" min="0" max="100" step="1" value="${city.settings.devices.mobile}" onchange="updateCityForm(this.id, this.value)" id="${city.city}_device_mobile" />
-                <input class="device-web" type="range" min="0" max="100" step="1" value="${city.settings.devices.web}" onchange="updateCityForm(this.id, this.value)" id="${city.city}_device_web" />                
+                <label for="${portal.name}_device">Device (%)</label>
+                <input class="device-mobile" type="range" min="0" max="100" step="1" value="${portal.settings.devices.mobile}" onchange="updatePortalForm(this.id, this.value)" id="${portal.name}_device_mobile" />
+                <input class="device-web" type="range" min="0" max="100" step="1" value="${portal.settings.devices.web}" onchange="updatePortalForm(this.id, this.value)" id="${portal.name}_device_web" />                
             </div>
             <div class="left-form-group">
-                <label for="${city.city}_user">User (%)</label>
-                <input class="user-new" type="range" min="0" max="100" step="1" value="${city.settings.users.new}" onchange="updateCityForm(this.id, this.value)" id="${city.city}_user_new" />
-                <input class="user-registered" type="range" min="0" max="100" step="1" value="${city.settings.users.registered}" onchange="updateCityForm(this.id, this.value)" id="${city.city}_user_registered" />                
+                <label for="${portal.name}_user">User (%)</label>
+                <input class="user-new" type="range" min="0" max="100" step="1" value="${portal.settings.users.new}" onchange="updatePortalForm(this.id, this.value)" id="${portal.name}_user_new" />
+                <input class="user-registered" type="range" min="0" max="100" step="1" value="${portal.settings.users.registered}" onchange="updatePortalForm(this.id, this.value)" id="${portal.name}_user_registered" />                
             </div>
             <div class="left-form-group">
-                <label for="${city.city}_user">Travel Type (%)</label>
-                <input class="travel-t1" type="range" min="0" max="100" step="1" value="${city.settings.travel_type.t1}" onchange="updateCityForm(this.id, this.value)" id="${city.city}_travel_t1" />
-                <input class="travel-t2" type="range" min="0" max="100" step="1" value="${city.settings.travel_type.t2}" onchange="updateCityForm(this.id, this.value)" id="${city.city}_travel_t2" />
-                <input class="travel-t3" type="range" min="0" max="100" step="1" value="${city.settings.travel_type.t3}" onchange="updateCityForm(this.id, this.value)" id="${city.city}_travel_t3" />                            
+                <label for="${portal.name}_user">Travel Type (%)</label>
+                <input class="travel-t1" type="range" min="0" max="100" step="1" value="${portal.settings.travel_type.t1}" onchange="updatePortalForm(this.id, this.value)" id="${portal.name}_travel_t1" />
+                <input class="travel-t2" type="range" min="0" max="100" step="1" value="${portal.settings.travel_type.t2}" onchange="updatePortalForm(this.id, this.value)" id="${portal.name}_travel_t2" />
+                <input class="travel-t3" type="range" min="0" max="100" step="1" value="${portal.settings.travel_type.t3}" onchange="updatePortalForm(this.id, this.value)" id="${portal.name}_travel_t3" />                            
             </div>
         `;
         div.append(form);
@@ -54,12 +55,12 @@ const buildRefreshForm = () => {
     div.append(form);
 };
 
-const drawChartsTotal = (cities) => {
+const drawChartsTotal = (portals) => {
     const div = document.getElementById("tc_charts_total");
     const width = div.offsetWidth - 10;
     const height = div.offsetHeight - 10;
 
-    const margin = ({top: 30, right: 30, bottom: 10, left: 65})
+    const margin = ({top: 40, right: 30, bottom: 10, left: 100})
 
     const svg = d3.select("#tc_charts_total")
         .append("svg")
@@ -67,17 +68,17 @@ const drawChartsTotal = (cities) => {
         .attr("viewBox", [0, 0, width, height]);
 
     const y = d3.scaleBand()
-        .domain(d3.range(cities.length))
+        .domain(d3.range(portals.length))
         .rangeRound([margin.top, height - margin.bottom])
         .padding(0.1);
 
     const yAxis = g => g
         .attr("transform", `translate(${margin.left},0)`)
-        .call(d3.axisLeft(y).tickFormat(i => cities[i].city).tickSizeOuter(0))
+        .call(d3.axisLeft(y).tickFormat(i => portals[i].name).tickSizeOuter(0))
         .attr("font-size", 16);
 
     const x = d3.scaleLinear()
-        .domain([0, d3.max(cities, city => city.status.requests.total)])
+        .domain([0, d3.max(portals, portal => portal.status.requests.total)])
         .range([margin.left, width - margin.right]);
 
     const xAxis = g => g
@@ -85,18 +86,18 @@ const drawChartsTotal = (cities) => {
         .call(d3.axisTop(x).ticks(width / 80))
         .call(g => g.select(".domain").remove())
         .call(g => g.select(".tick:first-of-type text").clone()
-            .attr("y", -18)
+            .attr("y", -20)
             .attr("x", -3)
             .attr("text-anchor", "start")
             .attr("font-size", 16)
-            .text("Total Requests per City"));
+            .text("Total Requests per Portal"));
 
     const format = x.tickFormat(20);
 
     svg.append("g")
         .attr("fill", "var(--total-color)")
         .selectAll("rect")
-        .data(cities)
+        .data(portals)
         .join("rect")
         .attr("x", x(0))
         .attr("y", (d, i) => y(i))
@@ -109,7 +110,7 @@ const drawChartsTotal = (cities) => {
         .attr("font-family", "sans-serif")
         .attr("font-size", 16)
         .selectAll("text")
-        .data(cities)
+        .data(portals)
         .join("text")
         .attr("x", d => x(d.status.requests.total))
         .attr("y", (d, i) => y(i) + y.bandwidth() / 2)
@@ -128,7 +129,7 @@ const drawChartsTotal = (cities) => {
         .call(yAxis);
 };
 
-const drawChartsDetails = (cities, divId, svgId, keys, colors, dataMap, title) => {
+const drawChartsDetails = (portals, divId, svgId, keys, colors, dataMap, title) => {
     const div = document.getElementById(divId);
 
     const width = div.offsetWidth - 10,
@@ -139,13 +140,13 @@ const drawChartsDetails = (cities, divId, svgId, keys, colors, dataMap, title) =
         .attr("id", svgId)
         .attr("viewBox", [0, 0, width, height]);
 
-    const margin = {top: 10, right: 10, bottom: 20, left: 40};
+    const margin = {top: 10, right: 10, bottom: 30, left: 40};
 
     const color = d3.scaleOrdinal()
         .range(colors);
 
     const x0 = d3.scaleBand()
-        .domain(cities.map(d => d.city))
+        .domain(portals.map(d => d.name))
         .rangeRound([margin.left, width - margin.right])
         .paddingInner(0.1);
 
@@ -162,7 +163,7 @@ const drawChartsDetails = (cities, divId, svgId, keys, colors, dataMap, title) =
 
     // Note that we know that d.status.requests.total will represent max request per city
     const y = d3.scaleLinear()
-        .domain([0, d3.max(cities, d => d.status.requests.total)]).nice()
+        .domain([0, d3.max(portals, d => d.status.requests.total)]).nice()
         .rangeRound([height - margin.bottom, margin.top])
 
     const yAxis = g => g
@@ -207,9 +208,9 @@ const drawChartsDetails = (cities, divId, svgId, keys, colors, dataMap, title) =
 
     svg.append("g")
         .selectAll("g")
-        .data(cities)
+        .data(portals)
         .join("g")
-        .attr("transform", d => `translate(${x0(d.city)},0)`)
+        .attr("transform", d => `translate(${x0(d.name)},0)`)
         .selectAll("rect")
         .data(dataMap)
         .join("rect")
@@ -223,7 +224,7 @@ const drawChartsDetails = (cities, divId, svgId, keys, colors, dataMap, title) =
         .call(legend);
 };
 
-const drawChartsDevices = (cities) => {
+const drawChartsDevices = (portals) => {
     const keys = ["mobile", "web"];
     const colors = ["var(--device-mobile-color)", "var(--device-web-color)"];
     const dataMap = d => keys.map(key => {
@@ -244,7 +245,7 @@ const drawChartsDevices = (cities) => {
         }
     });
     drawChartsDetails(
-        cities,
+        portals,
         "tc_charts_devices",
         "svg_charts_devices",
         keys,
@@ -254,7 +255,7 @@ const drawChartsDevices = (cities) => {
     );
 };
 
-const drawChartsUsers = (cities) => {
+const drawChartsUsers = (portals) => {
     const keys = ["new", "registered"];
     const colors = ["var(--user-new-color)", "var(--user-registered-color)"];
     const dataMap = d => keys.map(key => {
@@ -275,7 +276,7 @@ const drawChartsUsers = (cities) => {
         }
     });
     drawChartsDetails(
-        cities,
+        portals,
         "tc_charts_users",
         "svg_charts_users",
         keys,
@@ -285,7 +286,7 @@ const drawChartsUsers = (cities) => {
     );
 };
 
-const drawChartsTypes = (cities) => {
+const drawChartsTypes = (portals) => {
     const keys = ["t1", "t2", "t3"];
     const colors = ["var(--travel-t1-color)", "var(--travel-t2-color)", "var(--travel-t3-color)"];
     const dataMap = d => keys.map(key => {
@@ -309,7 +310,7 @@ const drawChartsTypes = (cities) => {
         }
     });
     drawChartsDetails(
-        cities,
+        portals,
         "tc_charts_travel_types",
         "svg_charts_travel_types",
         keys,
@@ -319,19 +320,19 @@ const drawChartsTypes = (cities) => {
     );
 };
 
-const drawCharts = (cities) => {
+const drawCharts = (portals) => {
     d3.select("#svg_charts_total").remove();
     d3.select("#svg_charts_devices").remove();
     d3.select("#svg_charts_users").remove();
     d3.select("#svg_charts_travel_types").remove();
 
-    drawChartsTotal(cities);
-    drawChartsDevices(cities);
-    drawChartsUsers(cities);
-    drawChartsTypes(cities);
+    drawChartsTotal(portals);
+    drawChartsDevices(portals);
+    drawChartsUsers(portals);
+    drawChartsTypes(portals);
 };
 
-const drawMap = (world, cities) => {
+const drawMap = (world, portals) => {
     const div = document.getElementById("tc_map");
 
     const width = div.offsetWidth - 10,    // Adjust the margin
@@ -353,7 +354,7 @@ const drawMap = (world, cities) => {
         .projection(projection);
 
     const countries = topojson.feature(world, world.objects.countries);
-    const filtered = cities.map(c => c.country);
+    const filtered = portals.map(p => p.country);
     svg.selectAll("path")
         .data(countries.features)
         .enter()
@@ -370,9 +371,9 @@ const drawMap = (world, cities) => {
     svg.append("g")
         .attr("id", "g_status_info");
 
-    updateMap = (newCities) => {
+    updateMap = (newPortals) => {
         const radius = d3.scaleLinear()
-            .domain([0, d3.max(newCities.map(c => c.status.requests.total))])
+            .domain([0, d3.max(newPortals.map(c => c.status.requests.total))])
             .range([0, 50]);
 
         svg.select("#g_status_info").remove();
@@ -381,7 +382,7 @@ const drawMap = (world, cities) => {
 
         const g = svg.select("#g_status_info")
             .selectAll("circle")
-            .data(newCities)
+            .data(newPortals)
             .enter();
 
         const newX = (radial, radius, oldX) => oldX + Math.sin(radial)*radius;
@@ -501,93 +502,99 @@ const drawMap = (world, cities) => {
     }
 };
 
-const getCities = () => {
+const getPortalsStatus = () => {
     return fetch('status')
         .then(resp => {
             return resp.json();
         });
 };
 
-const updateCities = () => {
-    getCities()
-        .then(newCities => {
-            oldCities = newCities;
-            updateMap(oldCities);
-            drawCharts(oldCities);
-            updateCitiesForm(oldCities);
+const updatePortals = () => {
+    getPortalsStatus()
+        .then(newPortals => {
+            oldPortals = newPortals;
+            updateMap(oldPortals);
+            drawCharts(oldPortals);
+            updatePortalsForm(oldPortals);
             refreshLast = new Date();
             updateRefreshStatus();
         });
 };
 
-const updateCityForm = (formid, value) => {
+const updatePortalForm = (formid, value) => {
     const index = formid.indexOf("_");
-    const city = formid.substring(0, index);
+    const portal = formid.substring(0, index);
     const type = formid.substring(index + 1);
-    console.info('Changing city: ' + city + ' type: ' + type + ' value: ' + value);
-    for (let i = 0; i < oldCities.length; i++) {
-        if (oldCities[i].city === city) {
+    console.info('Changing portal: ' + portal + ' type: ' + type + ' value: ' + value);
+    for (let i = 0; i < oldPortals.length; i++) {
+        if (oldPortals[i].name === portal) {
             switch (type) {
                 case "ratio":
-                    oldCities[i].settings.request_ratio = parseInt(value);
+                    oldPortals[i].settings.request_ratio = parseInt(value);
                     break;
                 case "device_mobile":
-                    oldCities[i].settings.devices.mobile = parseInt(value);
-                    oldCities[i].settings.devices.web = 100 - value;
-                    document.getElementById(city+"_device_web").value = oldCities[i].settings.devices.web;
+                    oldPortals[i].settings.devices.mobile = parseInt(value);
+                    oldPortals[i].settings.devices.web = 100 - value;
+                    document.getElementById(portal+"_device_web").value = oldPortals[i].settings.devices.web;
                     break;
                 case "device_web":
-                    oldCities[i].settings.devices.web = parseInt(value);
-                    oldCities[i].settings.devices.mobile = 100 - value;
-                    document.getElementById(city+"_device_mobile").value = oldCities[i].settings.devices.mobile;
+                    oldPortals[i].settings.devices.web = parseInt(value);
+                    oldPortals[i].settings.devices.mobile = 100 - value;
+                    document.getElementById(portal+"_device_mobile").value = oldPortals[i].settings.devices.mobile;
                     break;
                 case "user_new":
-                    oldCities[i].settings.users.new = parseInt(value);
-                    oldCities[i].settings.users.registered = 100 - value;
-                    document.getElementById(city+"_user_registered").value = oldCities[i].settings.users.registered;
+                    oldPortals[i].settings.users.new = parseInt(value);
+                    oldPortals[i].settings.users.registered = 100 - value;
+                    document.getElementById(portal+"_user_registered").value = oldPortals[i].settings.users.registered;
                     break;
                 case "user_registered":
-                    oldCities[i].settings.users.registered = parseInt(value);
-                    oldCities[i].settings.users.new = 100 - value;
-                    document.getElementById(city+"_user_new").value = oldCities[i].settings.users.new;
+                    oldPortals[i].settings.users.registered = parseInt(value);
+                    oldPortals[i].settings.users.new = 100 - value;
+                    document.getElementById(portal+"_user_new").value = oldPortals[i].settings.users.new;
                     break;
                 case "travel_t1":
-                    oldCities[i].settings.travel_type.t1 = parseInt(value);
-                    oldCities[i].settings.travel_type.t2 = (100 - value) / 2;
-                    oldCities[i].settings.travel_type.t3 = (100 - value) / 2;
-                    document.getElementById(city+"_travel_t2").value = oldCities[i].settings.travel_type.t2;
-                    document.getElementById(city+"_travel_t3").value = oldCities[i].settings.travel_type.t3;
+                    oldPortals[i].settings.travel_type.t1 = parseInt(value);
+                    oldPortals[i].settings.travel_type.t2 = (100 - value) / 2;
+                    oldPortals[i].settings.travel_type.t3 = (100 - value) / 2;
+                    document.getElementById(portal+"_travel_t2").value = oldPortals[i].settings.travel_type.t2;
+                    document.getElementById(portal+"_travel_t3").value = oldPortals[i].settings.travel_type.t3;
                     break;
                 case "travel_t2":
-                    oldCities[i].settings.travel_type.t2 = parseInt(value);
-                    oldCities[i].settings.travel_type.t1 = (100 - value) / 2;
-                    oldCities[i].settings.travel_type.t3 = (100 - value) / 2;
-                    document.getElementById(city+"_travel_t1").value = oldCities[i].settings.travel_type.t1;
-                    document.getElementById(city+"_travel_t3").value = oldCities[i].settings.travel_type.t3;
+                    oldPortals[i].settings.travel_type.t2 = parseInt(value);
+                    oldPortals[i].settings.travel_type.t1 = (100 - value) / 2;
+                    oldPortals[i].settings.travel_type.t3 = (100 - value) / 2;
+                    document.getElementById(portal+"_travel_t1").value = oldPortals[i].settings.travel_type.t1;
+                    document.getElementById(portal+"_travel_t3").value = oldPortals[i].settings.travel_type.t3;
                     break;
                 case "travel_t3":
-                    oldCities[i].settings.travel_type.t3 = parseInt(value);
-                    oldCities[i].settings.travel_type.t1 = (100 - value) / 2;
-                    oldCities[i].settings.travel_type.t2 = (100 - value) / 2;
-                    document.getElementById(city+"_travel_t1").value = oldCities[i].settings.travel_type.t1;
-                    document.getElementById(city+"_travel_t2").value = oldCities[i].settings.travel_type.t2;
+                    oldPortals[i].settings.travel_type.t3 = parseInt(value);
+                    oldPortals[i].settings.travel_type.t1 = (100 - value) / 2;
+                    oldPortals[i].settings.travel_type.t2 = (100 - value) / 2;
+                    document.getElementById(portal+"_travel_t1").value = oldPortals[i].settings.travel_type.t1;
+                    document.getElementById(portal+"_travel_t2").value = oldPortals[i].settings.travel_type.t2;
                     break;
             }
-            updateSettings(city, oldCities[i].settings);
+            updateSettings(portal, oldPortals[i].settings);
         }
     }
 };
 
-const updateCitiesForm = (cities) => {
-    cities.forEach(c => {
-        document.getElementById(c.city+"_ratio").value = c.settings.request_ratio;
-        document.getElementById(c.city+"_device_mobile").value = c.settings.devices.mobile;
-        document.getElementById(c.city+"_device_web").value = c.settings.devices.web;
-        document.getElementById(c.city+"_user_new").value = c.settings.users.new;
-        document.getElementById(c.city+"_user_registered").value = c.settings.users.registered;
-        document.getElementById(c.city+"_travel_t1").value = c.settings.travel_type.t1;
-        document.getElementById(c.city+"_travel_t2").value = c.settings.travel_type.t2;
-        document.getElementById(c.city+"_travel_t3").value = c.settings.travel_type.t3;
+const updatePortalsForm = (portals) => {
+    portals.forEach(p => {
+        document.getElementById(p.name+"_ratio").value = p.settings.request_ratio;
+        document.getElementById(p.name+"_device_mobile").value = p.settings.devices.mobile;
+        document.getElementById(p.name+"_device_web").value = p.settings.devices.web;
+        document.getElementById(p.name+"_user_new").value = p.settings.users.new;
+        document.getElementById(p.name+"_user_registered").value = p.settings.users.registered;
+        document.getElementById(p.name+"_travel_t1").value = p.settings.travel_type.t1;
+        document.getElementById(p.name+"_travel_t2").value = p.settings.travel_type.t2;
+        document.getElementById(p.name+"_travel_t3").value = p.settings.travel_type.t3;
+        span = document.getElementById(p.name + "_error");
+        if (p.status.error) {
+            span.innerText = ' - Failed to connect ';
+        } else {
+            span.innerText = '';
+        }
     });
 };
 
@@ -596,7 +603,7 @@ const updateRefresh = (value) => {
     refreshTimeout = value
     document.getElementById('refresh_control_label').innerText = `Refresh Control (${refreshTimeout} ms)`;
     clearInterval(refreshHandler);
-    refreshHandler = window.setInterval(updateCities, refreshTimeout);
+    refreshHandler = window.setInterval(updatePortals, refreshTimeout);
 };
 
 const updateRefreshStatus = () => {
@@ -604,8 +611,8 @@ const updateRefreshStatus = () => {
     label.innerText = "Last refresh: " + refreshLast.toTimeString();
 };
 
-const updateSettings = (city, settings) => {
-    fetch('settings/' + city, {
+const updateSettings = (portal, settings) => {
+    fetch('settings/' + portal, {
         method: 'PUT',
         body: JSON.stringify(settings),
         headers:{
@@ -614,7 +621,7 @@ const updateSettings = (city, settings) => {
     }).then(resp => {
         return resp.json();
     }).then(_ => {
-        updateCities();
+        updatePortals();
     });
 };
 
@@ -622,31 +629,31 @@ const updateSettings = (city, settings) => {
 
 Promise.all([
     d3.json("data/countries-110m.json"),    // From https://github.com/topojson/world-atlas
-    getCities(),
+    getPortalsStatus(),
 ])
-    .then(([newWorld, newCities]) => {
-        oldCities = newCities;
+    .then(([newWorld, newPortals]) => {
+        oldPortals = newPortals;
         oldWorld = newWorld;
 
-        buildCitiesForm(oldCities);
+        buildPortalsForm(oldPortals);
         buildRefreshForm();
 
-        drawCharts(oldCities);
+        drawCharts(oldPortals);
 
-        drawMap(oldWorld, oldCities);
-        updateMap(oldCities);
+        drawMap(oldWorld, oldPortals);
+        updateMap(oldPortals);
     });
 
 window.onresize = () => {
-    if (oldWorld !== undefined && oldCities !== undefined) {
+    if (oldWorld !== undefined && oldPortals !== undefined) {
 
         d3.select("#svg_map").remove();
-        drawMap(oldWorld, oldCities);
-        updateMap(oldCities);
+        drawMap(oldWorld, oldPortals);
+        updateMap(oldPortals);
 
-        drawCharts(oldCities);
+        drawCharts(oldPortals);
     }
 };
 
-refreshHandler = window.setInterval(updateCities, refreshTimeout);
+refreshHandler = window.setInterval(updatePortals, refreshTimeout);
 

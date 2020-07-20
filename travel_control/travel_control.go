@@ -8,17 +8,51 @@ import (
 	"github.com/gorilla/mux"
 	"encoding/json"
 	"io/ioutil"
+	"strings"
+	"sync"
+	"bytes"
+	"sort"
+)
+
+const (
+
 )
 
 var (
+	listenAddress = ":8080"
 	// By default travel_control binary expects a /html folder in its directory
 	webroot = "./html"
 	statusDemoIndex = 0
+	portalServices = make(map[string]string)
+	portalStatus = make(map[string]PortalStatus)
+	rw sync.Mutex
+
+	errorCoordinates = []float64{-25.702539, 37.747909}
 )
 
 func setup() {
 	flag.Set("logtostderr", "true")
 	flag.Parse()
+	la := os.Getenv("LISTEN_ADDRESS")
+	if la != "" {
+		listenAddress = la
+		glog.Infof("LISTEN_ADDRESS=%s", listenAddress)
+	}
+
+	ps := os.Getenv("PORTAL_SERVICES")
+	if ps != "" {
+		portals := strings.Split(ps, ",")
+		for _, portal := range portals {
+			details := strings.Split(portal, ";")
+			if len(details) == 2 {
+				portalServices[details[0]] = details[1]
+			}
+		}
+		glog.Infof("PORTAL_SERVICES=%s", ps)
+	} else {
+		glog.Errorf("PORTAL_SERVICES is empty !! Travel Control won't start")
+		os.Exit(1)
+	}
 	wr := os.Getenv("WEBROOT")
 	if wr != "" {
 		webroot = wr
@@ -39,15 +73,58 @@ func response(w http.ResponseWriter, code int, payload interface{}) {
 }
 
 func GetStatus(w http.ResponseWriter, _ *http.Request) {
-	glog.Info("GetStatus \n")
-	response(w, http.StatusOK, demoData())
+	var wg sync.WaitGroup
+	wg.Add(len(portalServices))
+
+	for portalName, portalAddress := range portalServices {
+		go func(name, address string) {
+			defer wg.Done()
+			request, _ := http.NewRequest("GET", address + "/status", nil)
+			client := &http.Client{}
+			response, err := client.Do(request)
+			if err != nil {
+				glog.Errorf("Failed to get status for portal [%s] [%s]. Error: [%s]", name, address, err.Error())
+				portalStatus[name] = PortalStatus{
+					Name: name,
+					Coordinates: errorCoordinates,
+					Country: "Atlantis",
+					Settings: Settings{},
+					Status: Status{
+						Error: true,
+					},
+				}
+			} else {
+				status := PortalStatus{}
+				json.NewDecoder(response.Body).Decode(&status)
+				glog.Infof("Received status for portal [%s]. %v",name, status)
+				rw.Lock()
+				portalStatus[name] = status
+				rw.Unlock()
+			}
+		}(portalName, portalAddress)
+	}
+
+	wg.Wait()
+
+	// Return always an ordered response
+	portals := make([]string, 0)
+	for portal := range portalStatus {
+		portals = append(portals, portal)
+	}
+
+	sort.Strings(portals)
+
+	status := make([]PortalStatus, 0)
+	for _, portal := range portals {
+		status = append(status, portalStatus[portal])
+	}
+
+	response(w, http.StatusOK, status)
 }
 
 func PutSettings(w http.ResponseWriter, r *http.Request) {
-	glog.Info("PutSettings \n")
-
 	params := mux.Vars(r)
-	city := params["city"]
+	portal := params["portal"]
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -61,7 +138,19 @@ func PutSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	glog.Infof("Received PutSettings for [%s] [%v]", city, settings)
+	if address, exist := portalServices[portal]; !exist {
+		response(w, http.StatusNotFound, ResponseError{Error: "Error portal " + portal + " not found", Detail: err.Error()})
+		return
+	} else {
+		request, _ := http.NewRequest("PUT", address + "/settings", bytes.NewBuffer(body))
+		client := &http.Client{}
+		_, err := client.Do(request)
+		if err != nil {
+			glog.Errorf("Failed to send a setting for portal [%s] [%s]. Error: [%s]", portal, address, err)
+		}
+	}
+
+	glog.Infof("Received PutSettings for [%s] [%v]", portal, settings)
 	response(w, http.StatusOK, settings)
 }
 
@@ -74,7 +163,7 @@ func main() {
 	// Dynamic routes
 
 	router.HandleFunc("/status", GetStatus).Methods("GET")
-	router.HandleFunc("/settings/{city}", PutSettings).Methods("PUT")
+	router.HandleFunc("/settings/{portal}", PutSettings).Methods("PUT")
 
 	// Static routes
 
@@ -95,157 +184,5 @@ func main() {
 	staticFileServer := http.FileServer(http.Dir(webroot))
 	router.PathPrefix("/").Handler(staticFileServer)
 
-	glog.Fatal(http.ListenAndServe(":8080", router))
-}
-
-func demoData() []CityStatus {
-
-	status1 := Status{
-		Requests{
-			100,
-			Devices{
-				75,
-				25,
-			},
-			Users{
-				10,
-				90,
-			},
-			TravelType{
-				60,
-				20,
-				20,
-			},
-		},
-	}
-
-	status2 := Status{
-		Requests{
-			300,
-			Devices{
-				175,
-				125,
-			},
-			Users{
-				110,
-				190,
-			},
-			TravelType{
-				150,
-				50,
-				100,
-			},
-		},
-	}
-
-	status3 := Status{
-		Requests{
-			200,
-			Devices{
-				150,
-				50,
-			},
-			Users{
-				50,
-				150,
-			},
-			TravelType{
-				100,
-				80,
-				20,
-			},
-		},
-	}
-
-	status4 := Status{
-		Requests{
-			1000,
-			Devices{
-				750,
-				250,
-			},
-			Users{
-				100,
-				900,
-			},
-			TravelType{
-				600,
-				200,
-				200,
-			},
-		},
-	}
-
-	status := []Status{status1, status2, status3, status4}
-
-	statusDemoIndex = statusDemoIndex + 1;
-
-	return []CityStatus{
-		{
-			"Paris",
-			[]float64{2.337418, 48.861310},
-			"France",
-			Settings{
-				100,
-				Devices{
-					75,
-					25,
-				},
-				Users{
-					10,
-					90,
-				},
-				TravelType{
-					60,
-					20,
-					20,
-				},
-			},
-			status[statusDemoIndex % len(status)],
-		},
-		{
-			"Rome",
-			[]float64{12.492194, 41.890668},
-			"Italy",
-			Settings{
-				100,
-				Devices{
-					75,
-					25,
-				},
-				Users{
-					10,
-					90,
-				},
-				TravelType{
-					60,
-					20,
-					20,
-				},
-			},
-			status[(statusDemoIndex+1)%len(status)],
-		},
-		{
-			"London",
-			[]float64{-0.128018, 51.508178},
-			"United Kingdom",
-			Settings{
-				100,
-				Devices{
-					75,
-					25,
-				},
-				Users{
-					10,
-					90,
-				},
-				TravelType{
-					60,
-					20,
-					20,
-				},
-			},
-			status[(statusDemoIndex+2)%len(status)],
-		},
-	}
+	glog.Fatal(http.ListenAndServe(listenAddress, router))
 }

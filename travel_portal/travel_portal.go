@@ -1,0 +1,397 @@
+package main
+
+import (
+	"flag"
+	"os"
+	"github.com/golang/glog"
+	"net/http"
+	"encoding/json"
+	"github.com/gorilla/mux"
+	"io/ioutil"
+	"strings"
+	"strconv"
+	"sync"
+	"time"
+)
+
+const (
+	MAX_REQUEST_WAIT = 15000		// milliseconds
+	MIN_REQUEST_WAIT = 1000			// milliseconds
+)
+
+var (
+	listenAddress     = ":8081"
+	portalCoordinates = []float64{-5.321187, 35.890134}
+	portalCountry     = "no-country"
+	portalName        = "no-name"
+
+	rw sync.RWMutex
+
+	// Init settings
+	settings = Settings{
+		50,
+		Devices{
+			50,
+			50,
+		},
+		Users{
+			50,
+			50,
+		},
+		TravelType{
+			34,
+			33,
+			33,
+		},
+	}
+
+	status = Status{
+		Requests: Requests{
+			Total: 0,
+			Devices: Devices{
+				0,
+				0,
+			},
+			Users: Users{
+				0,
+				0,
+			},
+			TravelType: TravelType{
+				0,
+				0,
+				0,
+			},
+		},
+	}
+
+	// Temp counters used to calculate next request type
+	nextDevices = Devices{
+		50,
+		50,
+	}
+	nextUsers = Users{
+		50,
+		50,
+	}
+	nextTravelType = TravelType{
+		34,
+		33,
+		33,
+	}
+
+	travelsAgencyService = "http://localhost:8090/travels"
+)
+
+func setup() {
+	flag.Set("logtostderr", "true")
+	flag.Parse()
+	la := os.Getenv("LISTEN_ADDRESS")
+	if la != "" {
+		listenAddress = la
+		glog.Infof("LISTEN_ADDRESS=%s", listenAddress)
+	} else {
+		glog.Warningf("LISTEN_ADDRESS variable empty. Using default [%s]", listenAddress)
+	}
+	pc := os.Getenv("PORTAL_COORDINATES")
+	if pc != "" {
+		split := strings.Split(pc, ",")
+		if len(split) == 2 {
+			var lat, lon float64
+			var err error
+			if lat, err = strconv.ParseFloat(split[0], 64); err != nil {
+				glog.Errorf("PORTAL_COORDINATES cannot be parsed. Error in lat [%s]", lat)
+			}
+			if lon, err = strconv.ParseFloat(split[1], 64); err != nil {
+				glog.Errorf("PORTAL_COORDINATES cannot be parsed. Error in lon [%s]", lon)
+			}
+			if lat != 0 && lon != 0 {
+				// We flip the lat, lon -> lon, lat as d3 uses this format
+				// But normal way to express this is lattitude, longitud (i.e. google maps)
+				portalCoordinates = []float64{lon, lat}
+				glog.Infof("PORTAL_COORDINATES=%s", pc)
+			}
+		}
+	} else {
+		glog.Warningf("PORTAL_COORDINATES variable empty. Using default [%f, %f]", portalCoordinates[1], portalCoordinates[0])
+	}
+	pu := os.Getenv("PORTAL_COUNTRY")
+	if pu != "" {
+		portalCountry = pu
+		glog.Infof("PORTAL_COUNTRY=%s", portalCountry)
+	} else {
+		glog.Warningf("PORTAL_COUNTRY variable empty. Using default [%s]", portalCountry)
+	}
+	pn := os.Getenv("PORTAL_NAME")
+	if pn != "" {
+		portalName = pn
+		glog.Infof("PORTAL_NAME=%s", portalName)
+	} else {
+		glog.Warningf("PORTAL_NAME variable empty. Using default [%s]", portalName)
+	}
+	tas := os.Getenv("TRAVELS_AGENCY_SERVICE")
+	if tas != "" {
+		travelsAgencyService = tas
+		glog.Infof("TRAVELS_AGENCY_SERVICE=%s", travelsAgencyService)
+	} else {
+		glog.Warningf("TRAVELS_AGENCY_SERVICE variable empty. Using default [%s]", travelsAgencyService)
+	}
+}
+
+func response(w http.ResponseWriter, code int, payload interface{}) {
+	response, err := json.Marshal(payload)
+	if err != nil {
+		response, _ = json.Marshal(ResponseError{Error: err.Error()})
+		code = http.StatusInternalServerError
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_, _ = w.Write(response)
+}
+
+func calculateDevice(device string) string {
+	if device == "mobile" {
+		if nextDevices.Mobile > 0 {
+			status.Requests.Devices.Mobile = status.Requests.Devices.Mobile + 1
+			nextDevices.Mobile = nextDevices.Mobile - 1
+		} else if nextDevices.Web > 0 {
+			device = "web"
+			status.Requests.Devices.Web = status.Requests.Devices.Web + 1
+			nextDevices.Web = nextDevices.Web - 1
+		}
+	} else {
+		if nextDevices.Web > 0 {
+			status.Requests.Devices.Web = status.Requests.Devices.Web + 1
+			nextDevices.Web = nextDevices.Web - 1
+		} else {
+			device = "mobile"
+			status.Requests.Devices.Mobile = status.Requests.Devices.Mobile + 1
+			nextDevices.Mobile = nextDevices.Mobile - 1
+		}
+	}
+	if nextDevices.Mobile == 0 && nextDevices.Web == 0 {
+		nextDevices.Mobile = settings.Devices.Mobile
+		nextDevices.Web = settings.Devices.Web
+	}
+	return device
+}
+
+func calculateUser(user string) string {
+	if user == "registered" {
+		if nextUsers.Registered > 0 {
+			status.Requests.Users.Registered = status.Requests.Users.Registered + 1
+			nextUsers.Registered = nextUsers.Registered - 1
+		} else if nextUsers.New > 0 {
+			user = "new"
+			status.Requests.Users.New = status.Requests.Users.New + 1
+			nextUsers.New = nextUsers.New - 1
+		}
+	} else {
+		if nextUsers.New > 0 {
+			status.Requests.Users.New = status.Requests.Users.New + 1
+			nextUsers.New = nextUsers.New - 1
+		} else {
+			user = "registered"
+			status.Requests.Users.Registered = status.Requests.Users.Registered + 1
+			nextUsers.Registered = nextUsers.Registered - 1
+		}
+	}
+	if nextUsers.Registered == 0 && nextUsers.New == 0 {
+		nextUsers.Registered = settings.Users.Registered
+		nextUsers.New = settings.Users.New
+	}
+	return user
+}
+
+func calculateTravelType(travel_type string) string {
+	if travel_type == "t1" {
+		if nextTravelType.T1 > 0 {
+			status.Requests.TravelType.T1 = status.Requests.TravelType.T1 +1
+			nextTravelType.T1 = nextTravelType.T1 - 1
+		} else if nextTravelType.T2 > 0 {
+			travel_type = "t2"
+			status.Requests.TravelType.T2 = status.Requests.TravelType.T2 +1
+			nextTravelType.T2 = nextTravelType.T2 - 1
+		} else if nextTravelType.T3 > 0 {
+			travel_type = "t3"
+			status.Requests.TravelType.T3 = status.Requests.TravelType.T3 +1
+			nextTravelType.T3 = nextTravelType.T3 - 1
+		}
+	} else if travel_type == "t2" {
+		if nextTravelType.T2 > 0 {
+			status.Requests.TravelType.T2 = status.Requests.TravelType.T2 +1
+			nextTravelType.T2 = nextTravelType.T2 - 1
+		} else if nextTravelType.T3 > 0 {
+			travel_type = "t3"
+			status.Requests.TravelType.T3 = status.Requests.TravelType.T3 +1
+			nextTravelType.T3 = nextTravelType.T3 - 1
+		} else if nextTravelType.T1 > 0 {
+			travel_type = "t1"
+			status.Requests.TravelType.T1 = status.Requests.TravelType.T1 +1
+			nextTravelType.T1 = nextTravelType.T1 - 1
+		}
+	} else {
+		if nextTravelType.T3 > 0 {
+			status.Requests.TravelType.T3 = status.Requests.TravelType.T3 +1
+			nextTravelType.T3 = nextTravelType.T3 - 1
+		} else if nextTravelType.T1 > 0 {
+			travel_type = "t1"
+			status.Requests.TravelType.T1 = status.Requests.TravelType.T1 +1
+			nextTravelType.T1 = nextTravelType.T1 - 1
+		} else if nextTravelType.T2 > 0 {
+			travel_type = "t2"
+			status.Requests.TravelType.T2 = status.Requests.TravelType.T2 +1
+			nextTravelType.T2 = nextTravelType.T2 - 1
+		}
+	}
+	if nextTravelType.T1 == 0 && nextTravelType.T2 == 0 && nextTravelType.T3 == 0 {
+		nextTravelType.T1 = settings.TravelType.T1
+		nextTravelType.T2 = settings.TravelType.T2
+		nextTravelType.T3 = settings.TravelType.T3
+	}
+	return travel_type
+}
+
+func calculateRequestType() (string, string, string) {
+	var device, user, travel_type string
+
+	rw.Lock()
+
+	// Update total requests for this portal
+	status.Requests.Total = status.Requests.Total + 1
+
+	// Devices and User index
+	duIndex := status.Requests.Total % 2
+	tIndex := status.Requests.Total % 3
+	if duIndex == 0 {
+		device = "mobile"
+		user = "registered"
+
+	} else {
+		device = "web"
+		user = "new"
+	}
+	if tIndex == 0 {
+		travel_type = "t1"
+	} else if tIndex == 1 {
+		travel_type = "t2"
+	} else {
+		travel_type = "t3"
+	}
+
+	device = calculateDevice(device)
+	user = calculateUser(user)
+	travel_type = calculateTravelType(travel_type)
+
+	rw.Unlock()
+
+	return device, user, travel_type
+}
+
+func GetStatus(w http.ResponseWriter, _ *http.Request) {
+	glog.Infof("Sent Status for [%s]\n", portalName)
+
+	rw.RLock()
+	newStatus := Status{
+		Requests{
+			status.Requests.Total,
+			Devices{
+				status.Requests.Devices.Web,
+				status.Requests.Devices.Mobile,
+			},
+			Users{
+				status.Requests.Users.Registered,
+				status.Requests.Users.New,
+			},
+			TravelType{
+				status.Requests.TravelType.T1,
+				status.Requests.TravelType.T2,
+				status.Requests.TravelType.T3,
+			},
+		},
+		false,
+	}
+	newSettings := Settings{
+		settings.RequestRatio,
+		Devices{
+			settings.Devices.Web,
+			settings.Devices.Mobile,
+		},
+		Users{
+			settings.Users.Registered,
+			settings.Users.New,
+		},
+		TravelType{
+			settings.TravelType.T1,
+			settings.TravelType.T2,
+			settings.TravelType.T3,
+		},
+	}
+	rw.RUnlock()
+
+	portalStatus := PortalStatus{
+		portalName,
+		portalCoordinates,
+		portalCountry,
+		newSettings,
+		newStatus,
+	}
+
+	response(w, http.StatusOK, portalStatus)
+}
+
+func PutSettings(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		response(w, http.StatusBadRequest, ResponseError{Error: "Error reading body", Detail: err.Error()})
+		return
+	}
+
+	var newSettings Settings
+	if err := json.Unmarshal(body, &newSettings); err != nil {
+		response(w, http.StatusBadRequest, ResponseError{Error: "Error unmarshall settings", Detail: err.Error()})
+		return
+	}
+	rw.Lock()
+	settings = newSettings
+	nextDevices = settings.Devices
+	nextUsers = settings.Users
+	nextTravelType = settings.TravelType
+	rw.Unlock()
+
+	glog.Infof("Received New Settings for [%s] [%v]", portalName, settings)
+
+	response(w, http.StatusOK, settings)
+}
+
+func main() {
+	setup()
+	glog.Infof("Starting Travel Portal [%s]", portalName)
+
+	router := mux.NewRouter()
+
+	router.HandleFunc("/status", GetStatus).Methods("GET")
+	router.HandleFunc("/settings", PutSettings).Methods("PUT")
+
+	// Main loop
+	go func() {
+		for {
+			device, user, travel := calculateRequestType()
+
+			// TODO Perform the request
+
+			requestSleep := time.Duration(int(MAX_REQUEST_WAIT - (MAX_REQUEST_WAIT * float32(float32(settings.RequestRatio)/float32(100))))) * time.Millisecond
+
+			// Protection against very fast requests ratios
+			if requestSleep < MIN_REQUEST_WAIT * time.Millisecond {
+				requestSleep = MIN_REQUEST_WAIT * time.Millisecond
+			}
+
+			glog.Infof("Request from [%s] - Device [%s] User [%s] Travel Type [%s] - Sleep [%2.3f] s", portalName, device, user, travel, requestSleep.Seconds())
+			time.Sleep(requestSleep)
+		}
+	}()
+
+	glog.Fatal(http.ListenAndServe(listenAddress, router))
+}
+
