@@ -12,4 +12,6 @@
 *.out
 
 docker/travel_agency/travel_agency
+docker/travel_control/travel_control
+docker/travel_control/html
 docker/travel_portal/travel_portal

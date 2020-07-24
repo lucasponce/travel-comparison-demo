@@ -48,3 +48,32 @@ type ResponseError struct {
 	Detail string `json:"detail,omitempty"`
 }
 
+type Flight struct {
+	Airline string `json:"airline"`
+	Price float32 `json:"price"`
+}
+
+type Hotel struct {
+	Hotel string `json:"hotel"`
+	Price float32 `json:"price"`
+}
+
+type Car struct {
+	CarModel string `json:"carModel"`
+	Price float32 `json:"price"`
+}
+
+type Insurance struct {
+	Company string `json:"company"`
+	Price float32 `json:"price"`
+}
+
+type TravelQuote struct {
+	City string `json:"city"`
+	CreatedAt string `json:"createdAt"`
+	Status string `json:"status"`
+	Flights []Flight `json:"flights"`
+	Hotels []Hotel `json:"hotels"`
+	Cars []Car `json:"cars"`
+	Insurances []Insurance `json:"insurances"`
+}

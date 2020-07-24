@@ -7,6 +7,6 @@ ENV TRAVEL_HOME=/opt/travel_agency \
     
 WORKDIR $TRAVEL_HOME
 
-COPY travel_agency $TRAVEL_HOME/
+COPY insurances $TRAVEL_HOME/
 
-ENTRYPOINT ["/opt/travel_agency/travel_agency"]
+ENTRYPOINT ["/opt/travel_agency/insurances"]

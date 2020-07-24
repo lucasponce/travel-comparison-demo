@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	mathRand "math/rand"
 )
 
 const (
@@ -378,7 +379,48 @@ func main() {
 		for {
 			device, user, travel := calculateRequestType()
 
-			// TODO Perform the request
+			request, _ := http.NewRequest("GET", travelsAgencyService + "/travels", nil)
+			request.Header.Set("portal", portalName)
+			request.Header.Set("device", device)
+			request.Header.Set("user", user)
+			request.Header.Set("travel", travel)
+
+			client := &http.Client{}
+			response, err := client.Do(request)
+			if err != nil {
+				glog.Errorf("Error requesting Destinations from [%s] - Device [%s] User [%s] Travel Type [%s] - Error: %s", portalName, device, user, travel, err.Error())
+			}
+
+			cityNames := make([]string, 0)
+			json.NewDecoder(response.Body).Decode(&cityNames)
+
+			if len(cityNames) > 0 {
+				r := mathRand.New(mathRand.NewSource(99))
+				i := r.Int31n((int32)(len(cityNames)))
+				city := cityNames[i]
+
+				request, _ := http.NewRequest("GET", travelsAgencyService + "/travels/" + city, nil)
+				request.Header.Set("portal", portalName)
+				request.Header.Set("device", device)
+				request.Header.Set("user", user)
+				request.Header.Set("travel", travel)
+
+				client := &http.Client{}
+				response, err := client.Do(request)
+				if err != nil {
+					glog.Errorf("Error requesting Travel Quote from [%s] - Device [%s] User [%s] Travel Type [%s] City [%s] - Error: %s", portalName, device, user, travel, city, err.Error())
+				}
+				if response.StatusCode >= 400 {
+					glog.Errorf("Error requesting Travel Quote from [%s] - Device [%s] User [%s] Travel Type [%s] City [%s] - Status Error: %s", portalName, device, user, travel, city, response.StatusCode)
+
+				} else {
+					travelQuote := TravelQuote{}
+					json.NewDecoder(response.Body).Decode(&travelQuote)
+					glog.Infof("[%s] Quote received - Device [%s] User [%s] Travel Type [%s] City [%s]. Quote %v", portalName, device, user, travel, city, travelQuote)
+				}
+			} else {
+				glog.Warningf("Receiving empty Destinations from [%s] - Device [%s] User [%s] Travel Type [%s]", portalName, device, user, travel)
+			}
 
 			requestSleep := time.Duration(int(MAX_REQUEST_WAIT - (MAX_REQUEST_WAIT * float32(float32(settings.RequestRatio)/float32(100))))) * time.Millisecond
 
@@ -387,7 +429,7 @@ func main() {
 				requestSleep = MIN_REQUEST_WAIT * time.Millisecond
 			}
 
-			glog.Infof("Request from [%s] - Device [%s] User [%s] Travel Type [%s] - Sleep [%2.3f] s", portalName, device, user, travel, requestSleep.Seconds())
+			glog.Infof("Sleep [%2.3f] s", requestSleep.Seconds())
 			time.Sleep(requestSleep)
 		}
 	}()
