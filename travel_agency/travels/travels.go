@@ -169,23 +169,17 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		travel = "t1"
 	}
 
-
 	// Travel Type logic
 	// T1:	Flight + Car + Hotel + Insurance
 	// T2:	Flight + Hotel + Insurance
 	// T3:	Car + Hotel + Insurance
-	queries := 4
-	if travel == "t2" || travel == "t3" {
-		queries = 3
-	}
-
 	wg := sync.WaitGroup{}
-	wg.Add(queries)
-	errChan := make(chan error, queries)
+	wg.Add(4)
+	errChan := make(chan error, 4)
 
-	if travel != "t3" {
-		go func() {
-			defer wg.Done()
+	go func() {
+		defer wg.Done()
+		if travel == "t1" || travel == "t2" {
 			request, _ := http.NewRequest("GET", flightsService + "/flights/" + city, nil)
 			request.Header.Set("portal", user)
 			request.Header.Set("device", user)
@@ -202,8 +196,8 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			json.NewDecoder(response.Body).Decode(&travelQuote.Flights)
-		}()
-	}
+		}
+	}()
 
 	go func() {
 		defer wg.Done()
@@ -216,6 +210,7 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		response, err := client.Do(request)
 		if err != nil {
 			errChan <- err
+			return
 		}
 		if response.StatusCode >= 400 {
 			errChan <- errors.New(response.Status)
@@ -224,9 +219,9 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(response.Body).Decode(&travelQuote.Hotels)
 	}()
 
-	if travel != "t1" {
-		go func() {
-			defer wg.Done()
+	go func() {
+		defer wg.Done()
+		if travel == "t1" || travel == "t3" {
 			request, _ := http.NewRequest("GET", carsService + "/cars/" + city, nil)
 			request.Header.Set("portal", user)
 			request.Header.Set("device", user)
@@ -236,14 +231,15 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 			response, err := client.Do(request)
 			if err != nil {
 				errChan <- err
+				return
 			}
 			if response.StatusCode >= 400 {
 				errChan <- errors.New(response.Status)
 				return
 			}
 			json.NewDecoder(response.Body).Decode(&travelQuote.Cars)
-		}()
-	}
+		}
+	}()
 
 	go func() {
 		defer wg.Done()
@@ -256,6 +252,7 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		response, err := client.Do(request)
 		if err != nil {
 			errChan <- err
+			return
 		}
 		if response.StatusCode >= 400 {
 			errChan <- errors.New(response.Status)

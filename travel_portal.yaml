@@ -34,7 +34,7 @@ spec:
             - name: PORTAL_NAME
               value: "voyages.fr"
             - name: TRAVELS_AGENCY_SERVICE
-              value: "http://localhost:8090/"
+              value: "http://travels.travel-agency:8000"
 ---
 apiVersion: v1
 kind: Service
@@ -85,7 +85,7 @@ spec:
             - name: PORTAL_NAME
               value: "viaggi.it"
             - name: TRAVELS_AGENCY_SERVICE
-              value: "http://localhost:8090/"
+              value: "http://travels.travel-agency:8000"
 ---
 apiVersion: v1
 kind: Service
@@ -136,7 +136,7 @@ spec:
             - name: PORTAL_NAME
               value: "travels.uk"
             - name: TRAVELS_AGENCY_SERVICE
-              value: "http://localhost:8090/"
+              value: "http://travels.travel-agency:8000"
 ---
 apiVersion: v1
 kind: Service

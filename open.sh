@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-kubectl port-forward svc/control 8080:8080 -n travel-control &
-
 # Linux helper
 # xdg-open is a command to open a browser from the command line.
 # Mac users can use "open" command
@@ -10,3 +8,5 @@ kubectl port-forward svc/control 8080:8080 -n travel-control &
 # Otherwise, the check is just to confirm you can access addons from your browser
 
 xdg-open http://localhost:8080 &
+
+kubectl port-forward svc/control 8080:8080 -n travel-control

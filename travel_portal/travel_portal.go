@@ -374,6 +374,8 @@ func main() {
 	router.HandleFunc("/status", GetStatus).Methods("GET")
 	router.HandleFunc("/settings", PutSettings).Methods("PUT")
 
+	r := mathRand.New(mathRand.NewSource(99))
+
 	// Main loop
 	go func() {
 		for {
@@ -394,8 +396,9 @@ func main() {
 			cityNames := make([]string, 0)
 			json.NewDecoder(response.Body).Decode(&cityNames)
 
+			response.Body.Close()
+
 			if len(cityNames) > 0 {
-				r := mathRand.New(mathRand.NewSource(99))
 				i := r.Int31n((int32)(len(cityNames)))
 				city := cityNames[i]
 
