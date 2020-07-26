@@ -13,7 +13,8 @@
     --travel-t2-color:          rgb(204, 51, 255);
     --travel-t3-color:          rgb(255, 51, 153);
     --refresh-color:            #2ecc71;
-    --error-color:              rgb(255, 0, 0)
+    --error-color:              rgb(255, 0, 0);
+    --new-city-color:           #2ecc71;
 }
 
 * {

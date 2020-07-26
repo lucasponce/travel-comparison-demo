@@ -9,6 +9,7 @@ type Settings struct {
 
 type Status struct {
 	Requests Requests `json:"requests"`
+	Cities []CityRequests `json:"cities"`
 	Error    bool `json:"error"`
 }
 
@@ -17,6 +18,12 @@ type Requests struct {
 	Devices    Devices `json:"devices"`
 	Users      Users `json:"users"`
 	TravelType TravelType `json:"travel_type"`
+}
+
+type CityRequests struct {
+	City string `json:"city"`
+	Coordinates []float64 `json:"coordinates"`
+	Requests Requests `json:"requests"`
 }
 
 type Devices struct {

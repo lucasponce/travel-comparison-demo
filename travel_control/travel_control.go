@@ -96,7 +96,7 @@ func GetStatus(w http.ResponseWriter, _ *http.Request) {
 			} else {
 				status := PortalStatus{}
 				json.NewDecoder(response.Body).Decode(&status)
-				glog.Infof("Received status for portal [%s]. %v",name, status)
+				glog.Infof("Received status for portal [%s]. Total requests: %d Cities: %d",name, status.Status.Requests.Total, len(status.Status.Cities))
 				rw.Lock()
 				portalStatus[name] = status
 				rw.Unlock()

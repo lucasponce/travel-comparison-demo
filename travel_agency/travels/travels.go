@@ -13,6 +13,12 @@ import (
 	"time"
 )
 
+type City struct {
+	City string `json:"city"`
+	Lat string `json:"lat"`
+	Lng string `json:"lng"`
+}
+
 type Flight struct {
 	Airline string `json:"airline"`
 	Price float32 `json:"price"`
@@ -35,6 +41,7 @@ type Insurance struct {
 
 type TravelQuote struct {
 	City string `json:"city"`
+	Coordinates []float64 `json:"coordinates"`
 	CreatedAt string `json:"createdAt"`
 	Status string `json:"status"`
 	Flights []Flight `json:"flights"`
@@ -142,11 +149,11 @@ func GetDestinations(w http.ResponseWriter, r *http.Request) {
 		Error(w, false, "Error fetching destinations for portal [" + portal + "]")
 		return
 	}
-	cityNames := make([]string, 0)
-	json.NewDecoder(response.Body).Decode(&cityNames)
+	cities := make([]City, 0)
+	json.NewDecoder(response.Body).Decode(&cities)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cityNames)
+	json.NewEncoder(w).Encode(cities)
 }
 
 func GetTravelQuote(w http.ResponseWriter, r *http.Request) {

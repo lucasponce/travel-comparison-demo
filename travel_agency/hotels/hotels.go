@@ -15,6 +15,12 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+type City struct {
+	City string `json:"city"`
+	Lat string `json:"lat"`
+	Lng string `json:"lng"`
+}
+
 type Hotel struct {
 	Hotel string `json:"hotel"`
 	Price float32 `json:"price"`
@@ -133,21 +139,21 @@ func GetCities(w http.ResponseWriter, _ *http.Request) {
 	}
 	defer db.Close()
 
-	cityNames := make([]string, 0)
-	results, err := db.Query("SELECT city FROM cities ")
+	cities := make([]City, 0)
+	results, err := db.Query("SELECT city, lat, lng FROM cities")
 	if err != nil {
 		Error(w, false, err.Error())
 		return
 	}
 
 	for results.Next() {
-		var city string
-		results.Scan(&city)
-		cityNames = append(cityNames, city)
+		var city City
+		results.Scan(&city.City, &city.Lat, &city.Lng)
+		cities = append(cities, city)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cityNames)
+	json.NewEncoder(w).Encode(cities)
 }
 
 func GetHotels(w http.ResponseWriter, r *http.Request) {

@@ -80,6 +80,8 @@ var (
 		33,
 	}
 
+	cities = []City{}
+
 	travelsAgencyService = "http://localhost:8090/travels"
 )
 
@@ -289,55 +291,80 @@ func calculateRequestType() (string, string, string) {
 	return device, user, travel_type
 }
 
+func updateCityRequest(city string, coordinates []float64, device string, user string, travel_type string) {
+	defer rw.Unlock()
+	rw.Lock()
+
+	var cityRequest *CityRequests
+
+	var iCity int
+	for i, cr := range status.Cities {
+		if cr.City == city {
+			cityRequest = &cr
+			iCity = i
+			break
+		}
+	}
+
+	if cityRequest == nil {
+		coordinates = []float64{0, 0}
+		for _, c := range cities {
+			if city == c.City {
+				// We flip the lat, lon -> lon, lat as d3 uses this format
+				// But normal way to express this is lattitude, longitud (i.e. google maps)
+				coordinates[0], _ = strconv.ParseFloat(c.Lng, 64)
+				coordinates[1], _ = strconv.ParseFloat(c.Lat, 64)
+			}
+		}
+		cityRequest = &CityRequests{
+			city,
+			coordinates,
+			Requests{
+				0,
+				Devices{},
+				Users{},
+				TravelType{},
+			},
+		}
+		status.Cities = append(status.Cities, *cityRequest)
+		iCity = len(status.Cities) - 1
+	}
+
+	status.Cities[iCity].Requests.Total = status.Cities[iCity].Requests.Total + 1
+
+	if device == "mobile" {
+		status.Cities[iCity].Requests.Devices.Mobile = status.Cities[iCity].Requests.Devices.Mobile + 1
+	} else if device == "web" {
+		status.Cities[iCity].Requests.Devices.Web = status.Cities[iCity].Requests.Devices.Web + 1
+	}
+
+	if user == "new" {
+		status.Cities[iCity].Requests.Users.New = status.Cities[iCity].Requests.Users.New + 1
+	} else if user == "registered" {
+		status.Cities[iCity].Requests.Users.Registered = status.Cities[iCity].Requests.Users.Registered + 1
+	}
+
+	if travel_type == "t1" {
+		status.Cities[iCity].Requests.TravelType.T1 = status.Cities[iCity].Requests.TravelType.T1 + 1
+	} else if travel_type == "t2" {
+		status.Cities[iCity].Requests.TravelType.T2 = status.Cities[iCity].Requests.TravelType.T2 + 1
+	} else if travel_type == "t3" {
+		status.Cities[iCity].Requests.TravelType.T3 = status.Cities[iCity].Requests.TravelType.T3 + 1
+	}
+}
+
 func GetStatus(w http.ResponseWriter, _ *http.Request) {
+	defer rw.RUnlock()
 	glog.Infof("Sent Status for [%s]\n", portalName)
 
 	rw.RLock()
-	newStatus := Status{
-		Requests{
-			status.Requests.Total,
-			Devices{
-				status.Requests.Devices.Web,
-				status.Requests.Devices.Mobile,
-			},
-			Users{
-				status.Requests.Users.Registered,
-				status.Requests.Users.New,
-			},
-			TravelType{
-				status.Requests.TravelType.T1,
-				status.Requests.TravelType.T2,
-				status.Requests.TravelType.T3,
-			},
-		},
-		false,
-	}
-	newSettings := Settings{
-		settings.RequestRatio,
-		Devices{
-			settings.Devices.Web,
-			settings.Devices.Mobile,
-		},
-		Users{
-			settings.Users.Registered,
-			settings.Users.New,
-		},
-		TravelType{
-			settings.TravelType.T1,
-			settings.TravelType.T2,
-			settings.TravelType.T3,
-		},
-	}
-	rw.RUnlock()
-
 	portalStatus := PortalStatus{
 		portalName,
 		portalCoordinates,
 		portalCountry,
-		newSettings,
-		newStatus,
+		settings,
+		status,
 	}
-
 	response(w, http.StatusOK, portalStatus)
 }
 
@@ -374,7 +401,7 @@ func main() {
 	router.HandleFunc("/status", GetStatus).Methods("GET")
 	router.HandleFunc("/settings", PutSettings).Methods("PUT")
 
-	r := mathRand.New(mathRand.NewSource(99))
+	r := mathRand.New(mathRand.NewSource(time.Now().UnixNano()))
 
 	// Main loop
 	go func() {
@@ -393,14 +420,14 @@ func main() {
 				glog.Errorf("Error requesting Destinations from [%s] - Device [%s] User [%s] Travel Type [%s] - Error: %s", portalName, device, user, travel, err.Error())
 			}
 
-			cityNames := make([]string, 0)
-			json.NewDecoder(response.Body).Decode(&cityNames)
-
+			rw.Lock()
+			json.NewDecoder(response.Body).Decode(&cities)
 			response.Body.Close()
+			rw.Unlock()
 
-			if len(cityNames) > 0 {
-				i := r.Int31n((int32)(len(cityNames)))
-				city := cityNames[i]
+			if len(cities) > 0 {
+				i := r.Int31n((int32)(len(cities)))
+				city := cities[i].City
 
 				request, _ := http.NewRequest("GET", travelsAgencyService + "/travels/" + city, nil)
 				request.Header.Set("portal", portalName)
@@ -419,6 +446,7 @@ func main() {
 				} else {
 					travelQuote := TravelQuote{}
 					json.NewDecoder(response.Body).Decode(&travelQuote)
+					updateCityRequest(city, travelQuote.Coordinates, device, user, travel)
 					glog.Infof("[%s] Quote received - Device [%s] User [%s] Travel Type [%s] City [%s]. Quote %v", portalName, device, user, travel, city, travelQuote)
 				}
 			} else {

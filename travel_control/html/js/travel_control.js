@@ -1,6 +1,7 @@
 let updateMap = undefined;          // Global callbacks for updating map and charts
 let oldWorld = undefined;           // Keep a global variable of world topology to not repeat drawing
 let oldPortals = undefined;
+let oldCitiesMap = new Map();
 let refreshHandler = undefined;
 let refreshTimeout = 5000;
 let refreshLast = new Date();
@@ -372,9 +373,11 @@ const drawMap = (world, portals) => {
         .attr("id", "g_status_info");
 
     updateMap = (newPortals) => {
+        const cities = getCities(newPortals);
+
         const radius = d3.scaleLinear()
-            .domain([0, d3.max(newPortals.map(c => c.status.requests.total))])
-            .range([0, 50]);
+            .domain([0, d3.max(cities.map(c => c.total))])
+            .range([0, 10]);
 
         svg.select("#g_status_info").remove();
         svg.append("g")
@@ -382,124 +385,117 @@ const drawMap = (world, portals) => {
 
         const g = svg.select("#g_status_info")
             .selectAll("circle")
-            .data(newPortals)
+            .data(cities)
             .enter();
 
-        const newX = (radial, radius, oldX) => oldX + Math.sin(radial)*radius;
-        const newY = (radial, radius, oldY) => oldY + Math.cos(radial)*radius;
-
-        // Devices circles
         g.append("circle")
-            .attr("cx", p => newX(Math.PI*2/3 * 0, radius(p.status.requests.total), projection(p.coordinates)[0]))
-            .attr("cy", p => newY(Math.PI*2/3 * 0, radius(p.status.requests.total), projection(p.coordinates)[1]))
-            .attr("r", p => radius(p.status.requests.devices.web > p.status.requests.devices.mobile ? p.status.requests.devices.web : p.status.requests.devices.mobile))
-            .attr("fill", p => p.status.requests.devices.web > p.status.requests.devices.mobile ? "var(--device-web-color)" : "var(--device-mobile-color)");
+            .attr("cx", p => projection(p.coordinates)[0])
+            .attr("cy", p => projection(p.coordinates)[1])
+            .attr("r", p => radius(p.total))
+            .attr("fill", p => p.new ? "var(--new-city-color)" : "var(--total-color)")
+            .attr("fill-opacity", 1)
+            .attr("stroke-opacity", 0)
+            .on("mouseenter", (d, _) => {
+                if (d3.select("#t" + d.city).empty()) {
+                    svg.select("#g_status_info")
+                        .append("text")
+                        .attr("id", "t" + d.city)
+                        .attr("x", projection(d.coordinates)[0] - 30)
+                        .attr("y", projection(d.coordinates)[1] - 15)
+                        .text(d.city);
 
-        g.append("circle")
-            .attr("cx", p => newX(Math.PI*2/3 * 0, radius(p.status.requests.total), projection(p.coordinates)[0]))
-            .attr("cy", p => newY(Math.PI*2/3 * 0, radius(p.status.requests.total), projection(p.coordinates)[1]))
-            .attr("r", p => radius(p.status.requests.devices.web < p.status.requests.devices.mobile ? p.status.requests.devices.web : p.status.requests.devices.mobile))
-            .attr("fill", p => p.status.requests.devices.web < p.status.requests.devices.mobile ? "var(--device-web-color)" : "var(--device-mobile-color)");
+                    const pieData = [];
+                    Object.keys(d['totalPortals']).forEach((key, j) => {
+                        pieData.push({
+                            name: key,
+                            value: d['totalPortals'][key],
+                        });
+                    });
 
-        // User circles
-        g.append("circle")
-            .attr("cx", p => newX(Math.PI*2/3 * 1, radius(p.status.requests.total), projection(p.coordinates)[0]))
-            .attr("cy", p => newY(Math.PI*2/3 * 1, radius(p.status.requests.total), projection(p.coordinates)[1]))
-            .attr("r", p => radius(p.status.requests.users.new > p.status.requests.users.registered ? p.status.requests.users.new : p.status.requests.users.registered))
-            .attr("fill", p => p.status.requests.users.new > p.status.requests.users.registered ? "var(--user-new-color)" : "var(--user-registered-color)");
+                    console.log('Pie data ' + d.city);
+                    console.log(pieData);
 
-        g.append("circle")
-            .attr("cx", p => newX(Math.PI*2/3 * 1, radius(p.status.requests.total), projection(p.coordinates)[0]))
-            .attr("cy", p => newY(Math.PI*2/3 * 1, radius(p.status.requests.total), projection(p.coordinates)[1]))
-            .attr("r", p => radius(p.status.requests.users.new < p.status.requests.users.registered ? p.status.requests.users.new : p.status.requests.users.registered))
-            .attr("fill", p => p.status.requests.users.new < p.status.requests.users.registered ? "var(--user-new-color)" : "var(--user-registered-color)");
+                    const pie = d3.pie()
+                            .sort(null)
+                            .value(d => d.value);
 
-        // Travel types
-
-        const maxTravel = (t) => {
-            if (t.t1 > t.t2) {
-                if (t.t1 > t.t3) {
-                    return {
-                        max: t.t1,
-                        color: "var(--travel-t1-color)"
+                    const arcLabel = () => {
+                        const r = radius(d.total);
+                        return d3.arc().innerRadius(radius).outerRadius(radius);
                     };
-                }
-            } else {
-                if (t.t2 > t.t3) {
-                    return {
-                        max: t.t2,
-                        color: "var(--travel-t2-color)"
-                    };
-                }
-            }
-            return {
-                max: t.t3,
-                color: "var(--travel-t3-color)"
-            };
-        };
 
-        const minTravel = (t) => {
-            if (t.t1 < t.t2) {
-                if (t.t1 < t.t3) {
-                    return {
-                        min: t.t1,
-                        color: "var(--travel-t1-color)"
-                    };
-                }
-            } else {
-                if (t.t2 < t.t3) {
-                    return {
-                        min: t.t2,
-                        color: "var(--travel-t2-color)"
-                    };
-                }
-            }
-            return {
-                min: t.t3,
-                color: "var(--travel-t3-color)"
-            };
-        };
+                    const arc = d3.arc()
+                        .innerRadius(radius(d.total))
+                        .outerRadius(radius(d.total) * 2)
 
-        const midTravel = (t) => {
-            if (t.t1 < t.t2) {
-                if (t.t1 > t.t3) {
-                    return {
-                        mid: t.t1,
-                        color: "var(--travel-t1-color)"
-                    };
+                    const pieColor = d3.scaleOrdinal()
+                        .domain(pieData.map(d => d.name))
+                        .range(d3.quantize(t => d3.interpolateSpectral(t * 0.8 + 0.1), pieData.length).reverse());
+
+                    const arcs = pie(pieData);
+
+                    const pieX = projection(d.coordinates)[0];
+                    const pieY = projection(d.coordinates)[1];
+
+                    svg.select("#g_status_info")
+                        .append("g")
+                        .attr("id", "p" + d.city)
+                        .attr("transform", "translate(" + pieX + "," + pieY + ")")
+                        .attr("stroke", "white")
+                        .selectAll("path")
+                        .data(arcs)
+                        .join("path")
+                        .attr("fill", d => pieColor(d.data.name))
+                        .attr("d", arc)
+                        .append("title")
+                        .text(d => `${d.data.name}: ${d.data.value.toLocaleString()}`);
+
                 }
-            } else {
-                if (t.t2 > t.t3) {
-                    return {
-                        mid: t.t2,
-                        color: "var(--travel-t2-color)"
-                    };
-                }
-            }
-            return {
-                mid: t.t3,
-                color: "var(--travel-t3-color)"
-            };
-        };
-
-        g.append("circle")
-            .attr("cx", p => newX(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[0]))
-            .attr("cy", p => newY(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[1]))
-            .attr("r", p => radius(maxTravel(p.status.requests.travel_type).max))
-            .attr("fill", p => maxTravel(p.status.requests.travel_type).color);
-
-        g.append("circle")
-            .attr("cx", p => newX(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[0]))
-            .attr("cy", p => newY(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[1]))
-            .attr("r", p => radius(midTravel(p.status.requests.travel_type).mid))
-            .attr("fill", p => midTravel(p.status.requests.travel_type).color);
-
-        g.append("circle")
-            .attr("cx", p => newX(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[0]))
-            .attr("cy", p => newY(Math.PI*2/3 * 2, radius(p.status.requests.total), projection(p.coordinates)[1]))
-            .attr("r", p => radius(minTravel(p.status.requests.travel_type).min))
-            .attr("fill", p => minTravel(p.status.requests.travel_type).color);
+            })
+            .on("mouseleave", (d, _) => {
+                // Select text by id and then remove
+                d3.select("#t" + d.city).remove();  // Remove text location
+                d3.select("#p" + d.city).remove();  // Remove pie location
+            })
+            .transition()
+            .attr("fill-opacity", 0)
+            .attr("stroke-opacity", 1)
+            .delay(500)
+            .duration(refreshTimeout - 500);
     }
+};
+
+const getCities = (portals) => {
+    const tempMap = new Map();
+    portals.forEach(portal => {
+        portal.status.cities.forEach(city => {
+            let totalCity = tempMap.get(city.city);
+            if (!totalCity) {
+                totalCity = {
+                    city: city.city,
+                    coordinates: city.coordinates,
+                    total: city.requests.total,
+                    new: false,
+                    totalPortals: {},
+                }
+            } else {
+                totalCity['total'] = totalCity['total'] + city.requests.total;
+            }
+            totalCity['totalPortals'][portal.name] = totalCity['total'];
+            tempMap.set(city.city, totalCity);
+        });
+    });
+
+    const cities = [];
+    tempMap.forEach(newCity => {
+        const oldCity = oldCitiesMap.get(newCity.city);
+        if (oldCity && oldCity.total < newCity.total) {
+            newCity.new = true;
+        }
+        cities.push(newCity);
+    });
+    oldCitiesMap = tempMap;
+    return cities;
 };
 
 const getPortalsStatus = () => {

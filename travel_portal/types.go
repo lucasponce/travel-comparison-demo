@@ -7,8 +7,15 @@ type Settings struct {
 	TravelType 		TravelType `json:"travel_type"`
 }
 
+type City struct {
+	City string `json:"city"`
+	Lat string `json:"lat"`
+	Lng string `json:"lng"`
+}
+
 type Status struct {
 	Requests Requests `json:"requests"`
+	Cities []CityRequests `json:"cities"`
 	Error    bool `json:"error"`
 }
 
@@ -17,6 +24,12 @@ type Requests struct {
 	Devices    Devices `json:"devices"`
 	Users      Users `json:"users"`
 	TravelType TravelType `json:"travel_type"`
+}
+
+type CityRequests struct {
+	City string `json:"city"`
+	Coordinates []float64 `json:"coordinates"`
+	Requests Requests `json:"requests"`
 }
 
 type Devices struct {
@@ -70,6 +83,7 @@ type Insurance struct {
 
 type TravelQuote struct {
 	City string `json:"city"`
+	Coordinates []float64 `json:"coordinates"`
 	CreatedAt string `json:"createdAt"`
 	Status string `json:"status"`
 	Flights []Flight `json:"flights"`
