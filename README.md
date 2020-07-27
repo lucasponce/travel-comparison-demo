@@ -102,5 +102,12 @@ All traffic and relation between services and workloads can be visualized using 
 
 ![Kiali Dashboard](doc/Kiali-Travel-Graph.png)
 
+## Feedback
+
+This demo is a pet project but if you think is useful to simulate some scenario, test some use case or you miss some feature, please, feel free to provide us feedback.
+
+In any way: from a comment or even a change in the repo.
+
+Thanks !
 
 
