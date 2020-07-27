@@ -96,13 +96,13 @@ const drawChartsTotal = (portals) => {
     const format = x.tickFormat(20);
 
     svg.append("g")
-        .attr("fill", "var(--total-color)")
         .selectAll("rect")
         .data(portals)
         .join("rect")
         .attr("x", x(0))
         .attr("y", (d, i) => y(i))
         .attr("width", d => x(d.status.requests.total) - x(0))
+        .attr("fill", (_, i) => "var(--portal-color-" + (i + 1) + ")")
         .attr("height", y.bandwidth());
 
     svg.append("g")
@@ -397,11 +397,17 @@ const drawMap = (world, portals) => {
             .attr("stroke-opacity", 0)
             .on("mouseenter", (d, _) => {
                 if (d3.select("#t" + d.city).empty()) {
+                    const pieRadius = radius(d.total);
+                    const pieX = projection(d.coordinates)[0];
+                    const pieY = projection(d.coordinates)[1];
+
+                    const xOffset = (d.city.length / 2) * 8;
+                    const yOffset = pieRadius * 3;
                     svg.select("#g_status_info")
                         .append("text")
                         .attr("id", "t" + d.city)
-                        .attr("x", projection(d.coordinates)[0] - 30)
-                        .attr("y", projection(d.coordinates)[1] - 15)
+                        .attr("x", projection(d.coordinates)[0] - xOffset)
+                        .attr("y", projection(d.coordinates)[1] - yOffset)
                         .text(d.city);
 
                     const pieData = [];
@@ -412,30 +418,17 @@ const drawMap = (world, portals) => {
                         });
                     });
 
-                    console.log('Pie data ' + d.city);
-                    console.log(pieData);
-
                     const pie = d3.pie()
                             .sort(null)
                             .value(d => d.value);
 
-                    const arcLabel = () => {
-                        const r = radius(d.total);
-                        return d3.arc().innerRadius(radius).outerRadius(radius);
-                    };
-
                     const arc = d3.arc()
-                        .innerRadius(radius(d.total))
-                        .outerRadius(radius(d.total) * 2)
-
-                    const pieColor = d3.scaleOrdinal()
-                        .domain(pieData.map(d => d.name))
-                        .range(d3.quantize(t => d3.interpolateSpectral(t * 0.8 + 0.1), pieData.length).reverse());
+                        .innerRadius(pieRadius)
+                        .outerRadius(pieRadius * 2)
 
                     const arcs = pie(pieData);
 
-                    const pieX = projection(d.coordinates)[0];
-                    const pieY = projection(d.coordinates)[1];
+                    const arcLabel = d3.arc().innerRadius(pieRadius).outerRadius(pieRadius);
 
                     svg.select("#g_status_info")
                         .append("g")
@@ -445,11 +438,10 @@ const drawMap = (world, portals) => {
                         .selectAll("path")
                         .data(arcs)
                         .join("path")
-                        .attr("fill", d => pieColor(d.data.name))
+                        .attr("fill", (_, i) => "var(--portal-color-" + (i +1) + ")")
                         .attr("d", arc)
                         .append("title")
                         .text(d => `${d.data.name}: ${d.data.value.toLocaleString()}`);
-
                 }
             })
             .on("mouseleave", (d, _) => {
@@ -461,7 +453,7 @@ const drawMap = (world, portals) => {
             .attr("fill-opacity", 0)
             .attr("stroke-opacity", 1)
             .delay(500)
-            .duration(refreshTimeout - 500);
+            .duration(refreshTimeout);
     }
 };
 

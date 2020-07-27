@@ -15,6 +15,11 @@
     --refresh-color:            #2ecc71;
     --error-color:              rgb(255, 0, 0);
     --new-city-color:           #2ecc71;
+    --portal-color-1:           #e41a1c;
+    --portal-color-2:           #4daf4a;
+    --portal-color-3:           #1c9099;
+    --portal-color-4:           #984ea3;
+    --portal-color-5:           #ff7f00;
 }
 
 * {
