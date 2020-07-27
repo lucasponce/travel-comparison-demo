@@ -391,7 +391,7 @@ const drawMap = (world, portals) => {
         g.append("circle")
             .attr("cx", p => projection(p.coordinates)[0])
             .attr("cy", p => projection(p.coordinates)[1])
-            .attr("r", p => radius(p.total))
+            .attr("r", p => p.new ? radius(p.total) * 3 : radius(p.total))
             .attr("fill", p => p.new ? "var(--new-city-color)" : "var(--total-color)")
             .attr("fill-opacity", 1)
             .attr("stroke-opacity", 0)
@@ -452,6 +452,7 @@ const drawMap = (world, portals) => {
             .transition()
             .attr("fill-opacity", 0)
             .attr("stroke-opacity", 1)
+            .attr("r", p => radius(p.total))
             .delay(500)
             .duration(refreshTimeout);
     }
@@ -466,14 +467,13 @@ const getCities = (portals) => {
                 totalCity = {
                     city: city.city,
                     coordinates: city.coordinates,
-                    total: city.requests.total,
+                    total: 0,
                     new: false,
                     totalPortals: {},
                 }
-            } else {
-                totalCity['total'] = totalCity['total'] + city.requests.total;
             }
-            totalCity['totalPortals'][portal.name] = totalCity['total'];
+            totalCity['total'] = totalCity['total'] + city.requests.total;
+            totalCity['totalPortals'][portal.name] = city.requests.total;
             tempMap.set(city.city, totalCity);
         });
     });
@@ -481,7 +481,7 @@ const getCities = (portals) => {
     const cities = [];
     tempMap.forEach(newCity => {
         const oldCity = oldCitiesMap.get(newCity.city);
-        if (oldCity && oldCity.total < newCity.total) {
+        if (!oldCity || (oldCity && oldCity.total < newCity.total)) {
             newCity.new = true;
         }
         cities.push(newCity);

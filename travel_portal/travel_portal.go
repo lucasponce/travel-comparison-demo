@@ -17,7 +17,7 @@ import (
 
 const (
 	MAX_REQUEST_WAIT = 15000		// milliseconds
-	MIN_REQUEST_WAIT = 1000			// milliseconds
+	MIN_REQUEST_WAIT = 750			// milliseconds
 )
 
 var (
