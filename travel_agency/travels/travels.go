@@ -143,6 +143,7 @@ func GetDestinations(w http.ResponseWriter, r *http.Request) {
 	glog.Infof("[%s] GetDestinations from [%s]. Device [%s]. User [%s]. Travel [%s] \n", instance, portal, device, user, travel)
 
 	request, _ := http.NewRequest("GET", hotelsService + "/hotels", nil)
+	propagateHeaders(r, request)
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
@@ -188,10 +189,7 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		defer wg.Done()
 		if travel == "t1" || travel == "t2" {
 			request, _ := http.NewRequest("GET", flightsService + "/flights/" + city, nil)
-			request.Header.Set("portal", user)
-			request.Header.Set("device", user)
-			request.Header.Set("user", user)
-
+			propagateHeaders(r, request)
 			client := &http.Client{}
 			response, err := client.Do(request)
 			if err != nil {
@@ -209,9 +207,7 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer wg.Done()
 		request, _ := http.NewRequest("GET", hotelsService + "/hotels/" + city, nil)
-		request.Header.Set("portal", user)
-		request.Header.Set("device", user)
-		request.Header.Set("user", user)
+		propagateHeaders(r, request)
 
 		client := &http.Client{}
 		response, err := client.Do(request)
@@ -230,9 +226,7 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 		defer wg.Done()
 		if travel == "t1" || travel == "t3" {
 			request, _ := http.NewRequest("GET", carsService + "/cars/" + city, nil)
-			request.Header.Set("portal", user)
-			request.Header.Set("device", user)
-			request.Header.Set("user", user)
+			propagateHeaders(r, request)
 
 			client := &http.Client{}
 			response, err := client.Do(request)
@@ -251,9 +245,7 @@ func GetTravelQuote(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer wg.Done()
 		request, _ := http.NewRequest("GET", insurancesService + "/insurances/" + city, nil)
-		request.Header.Set("portal", user)
-		request.Header.Set("device", user)
-		request.Header.Set("user", user)
+		propagateHeaders(r, request)
 
 		client := &http.Client{}
 		response, err := client.Do(request)
@@ -288,6 +280,25 @@ func releaseTheMonkey(city, user string) {
 		if (city != "" && city == chaosMonkeyCity) || (user != "" && user == chaosMonkeyUser) || (chaosMonkeyCity == "" && chaosMonkeyUser == "") {
 			time.Sleep(chaosMonkeySleep)
 		}
+	}
+}
+
+func propagateHeaders(a *http.Request, b *http.Request) {
+	headers := []string{
+		"portal",
+		"device",
+		"user",
+		"travel",
+		"x-request-id",
+		"x-b3-traceid",
+		"x-b3-spanid",
+		"x-b3-parentspanid",
+		"x-b3-sampled",
+		"x-b3-flags",
+		"x-ot-span-context",
+	}
+	for _, header := range headers {
+		b.Header.Add(header, a.Header.Get(header))
 	}
 }
 

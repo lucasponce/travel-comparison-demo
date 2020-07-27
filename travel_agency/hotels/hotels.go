@@ -177,8 +177,6 @@ func GetHotels(w http.ResponseWriter, r *http.Request) {
 
 func applyDiscounts(r *http.Request, travelInfo *TravelInfo, discountFrom string) TravelInfo {
 	user := r.Header.Get("user")
-	portal := r.Header.Get("portal")
-	device := r.Header.Get("device")
 
 	if user == "" {
 		return *travelInfo
@@ -186,9 +184,8 @@ func applyDiscounts(r *http.Request, travelInfo *TravelInfo, discountFrom string
 
 	discount := float32(1)
 	request, _ := http.NewRequest("GET", discountsService + "/discounts/" + user, nil)
+	propagateHeaders(r, request)
 	request.Header.Set("discountFrom", discountFrom)
-	request.Header.Set("portal", portal)
-	request.Header.Set("device", device)
 
 	client := &http.Client{}
 	response, err := client.Do(request)
@@ -251,6 +248,25 @@ func releaseTheMonkey(portal, device, user string) {
 			(portal == "" && device == "" && user == "") {
 			time.Sleep(chaosMonkeySleep)
 		}
+	}
+}
+
+func propagateHeaders(a *http.Request, b *http.Request) {
+	headers := []string{
+		"portal",
+		"device",
+		"user",
+		"travel",
+		"x-request-id",
+		"x-b3-traceid",
+		"x-b3-spanid",
+		"x-b3-parentspanid",
+		"x-b3-sampled",
+		"x-b3-flags",
+		"x-ot-span-context",
+	}
+	for _, header := range headers {
+		b.Header.Add(header, a.Header.Get(header))
 	}
 }
 
