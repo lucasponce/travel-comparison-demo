@@ -50,3 +50,14 @@ kubectl delete namespace travel-portal
 kubectl delete namespace travel-control
 ```
 
+## Travels Demo Design
+
+![Design](doc/Preliminary-Design.png)
+
+## Travels Dashboard
+
+![Travels Dashboard](doc/Travels-Dashboard.png)
+
+## Kiali Dashboard
+
+![Kiali Dashboard](doc/Kiali-Travel-Graph.png)
